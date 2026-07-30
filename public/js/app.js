@@ -1,3 +1,10 @@
+// Automatically include credentials (session cookies) on all fetch requests
+const originalFetch = window.fetch;
+window.fetch = function (url, options = {}) {
+  options.credentials = 'include';
+  return originalFetch(url, options);
+};
+
 // ProxyVault Dashboard Core Logic
 let currentUser = null;
 let activePollIntervals = {};

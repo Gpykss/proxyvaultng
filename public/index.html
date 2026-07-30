@@ -43,6 +43,13 @@
   <div class="toast-container" id="toast-container"></div>
 
   <script>
+    // Automatically include credentials (session cookies) on all fetch requests
+    const originalFetch = window.fetch;
+    window.fetch = function (url, options = {}) {
+      options.credentials = 'include';
+      return originalFetch(url, options);
+    };
+
     // Simple inline router/auth toggle controller
     const authForm = document.getElementById('auth-form');
     const authTitle = document.getElementById('auth-title');

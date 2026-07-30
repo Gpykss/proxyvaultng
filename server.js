@@ -43,15 +43,89 @@ app.use(express.json({
 }));
 app.use(express.urlencoded({ extended: true }));
 
-// Session Middleware
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'proxyvault_secret',
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    maxAge: 24 * 60 * 60 * 1000 // 1 day
+// CORS Middleware enabling credentials
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  const allowedOrigins = [
+    'https://proxyvaultng.vercel.app',
+    'http://localhost:3000',
+    'http://127.0.0.1:3000'
+  ];
+  if (process.env.CLIENT_URL) {
+    allowedOrigins.push(process.env.CLIENT_URL);
   }
-}));
+  
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', allowedOrigins[0] || 'https://proxyvaultng.vercel.app');
+  }
+  
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  
+  next();
+});
+
+// Custom stateless signed cookie-session middleware for Serverless
+app.use((req, res, next) => {
+  req.session = {};
+  
+  // Simple cookie parser
+  const rawCookie = req.headers.cookie || '';
+  const cookies = {};
+  rawCookie.split(';').forEach(cookie => {
+    const parts = cookie.split('=');
+    if (parts[0] && parts[1]) {
+      cookies[parts[0].trim()] = parts[1].trim();
+    }
+  });
+
+  const sessionToken = cookies['proxyvault_session'];
+  if (sessionToken) {
+    try {
+      const [userId, email, signature] = sessionToken.split('|');
+      const expectedSignature = crypto.createHmac('sha256', process.env.SESSION_SECRET || 'proxyvault_super_secret_session_key_12345')
+                                      .update(`${userId}|${email}`)
+                                      .digest('hex');
+      if (signature === expectedSignature) {
+        req.session.userId = userId;
+        req.session.email = email;
+      }
+    } catch (e) {
+      console.error('Session signature verification error:', e);
+    }
+  }
+
+  // Session helper methods
+  res.saveSession = (userId, email) => {
+    const signature = crypto.createHmac('sha256', process.env.SESSION_SECRET || 'proxyvault_super_secret_session_key_12345')
+                            .update(`${userId}|${email}`)
+                            .digest('hex');
+    const token = `${userId}|${email}|${signature}`;
+    
+    // Cookie options supporting cross-site (Secure; SameSite=None)
+    const isProd = process.env.NODE_ENV === 'production';
+    const secureFlag = isProd ? 'Secure;' : '';
+    const sameSiteFlag = isProd ? 'SameSite=None;' : 'SameSite=Lax;';
+    
+    res.setHeader('Set-Cookie', `proxyvault_session=${token}; Path=/; HttpOnly; ${secureFlag} ${sameSiteFlag} Max-Age=86400`);
+  };
+
+  res.destroySession = () => {
+    const isProd = process.env.NODE_ENV === 'production';
+    const secureFlag = isProd ? 'Secure;' : '';
+    const sameSiteFlag = isProd ? 'SameSite=None;' : 'SameSite=Lax;';
+    res.setHeader('Set-Cookie', `proxyvault_session=; Path=/; HttpOnly; ${secureFlag} ${sameSiteFlag} Max-Age=0`);
+  };
+
+  next();
+});
 
 // Database Connection Middleware for Serverless Environments
 app.use(async (req, res, next) => {
@@ -111,8 +185,7 @@ app.post('/api/auth/register', async (req, res) => {
       balance: 0
     });
 
-    req.session.userId = user._id.toString();
-    req.session.email = user.email;
+    res.saveSession(user._id.toString(), user.email);
 
     res.status(201).json({ message: 'Registration successful', userId: user._id.toString() });
   } catch (error) {
@@ -139,8 +212,7 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(400).json({ error: 'Invalid email or password.' });
     }
 
-    req.session.userId = user._id.toString();
-    req.session.email = user.email;
+    res.saveSession(user._id.toString(), user.email);
 
     res.json({ message: 'Login successful', userId: user._id.toString() });
   } catch (error) {
@@ -151,13 +223,8 @@ app.post('/api/auth/login', async (req, res) => {
 
 // Logout user
 app.post('/api/auth/logout', (req, res) => {
-  req.session.destroy((err) => {
-    if (err) {
-      return res.status(500).json({ error: 'Failed to log out.' });
-    }
-    res.clearCookie('connect.sid');
-    res.json({ message: 'Logged out successfully' });
-  });
+  res.destroySession();
+  res.json({ message: 'Logged out successfully' });
 });
 
 // Helper to query Korapay and reconcile any pending deposits (throttled to protect rate limits)
