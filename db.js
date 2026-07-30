@@ -2,15 +2,38 @@ const mongoose = require('mongoose');
 
 const mongoUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/proxyvault';
 
-// Exported dbReady promise that resolves when connected successfully
-const dbReady = mongoose.connect(mongoUri)
-  .then(() => {
-    console.log('MongoDB initialized successfully.');
-  })
-  .catch((err) => {
-    console.error('MongoDB connection failure:', err);
-    throw err;
-  });
+let cached = global.mongoose;
+
+if (!cached) {
+  cached = global.mongoose = { conn: null, promise: null };
+}
+
+async function connectDB() {
+  if (cached.conn) {
+    return cached.conn;
+  }
+
+  if (!cached.promise) {
+    const opts = {
+      bufferCommands: false
+    };
+    cached.promise = mongoose.connect(mongoUri, opts).then((m) => {
+      console.log('MongoDB initialized successfully.');
+      return m;
+    });
+  }
+
+  try {
+    cached.conn = await cached.promise;
+  } catch (e) {
+    cached.promise = null;
+    throw e;
+  }
+
+  return cached.conn;
+}
+
+const dbReady = connectDB();
 
 // 1. User Schema definition
 const UserSchema = new mongoose.Schema({
@@ -67,6 +90,7 @@ const ProxyLease = mongoose.model('ProxyLease', ProxyLeaseSchema);
 const SmsActivation = mongoose.model('SmsActivation', SmsActivationSchema);
 
 module.exports = {
+  connectDB,
   dbReady,
   User,
   Transaction,

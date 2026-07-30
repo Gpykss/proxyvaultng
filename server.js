@@ -7,7 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 const QRCode = require('qrcode');
-const { User, Transaction, ProxyLease, SmsActivation, dbReady } = require('./db');
+const { User, Transaction, ProxyLease, SmsActivation, dbReady, connectDB } = require('./db');
 const proxyService = require('./services/proxyService');
 const smsService = require('./services/smsService');
 
@@ -53,8 +53,31 @@ app.use(session({
   }
 }));
 
+// Database Connection Middleware for Serverless Environments
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    console.error('Database connection middleware error:', err);
+    res.status(500).json({ error: 'Database connection failed. Please try again later.' });
+  }
+});
+
 // Serve static frontend files
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Fast Warm-up & Ping Endpoints
+app.get('/api/v1/ping', (req, res) => {
+  res.json({ status: 'ok' });
+});
+
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    dbState: mongoose.connection.readyState
+  });
+});
 
 // Authentication check middleware
 function requireAuth(req, res, next) {
@@ -494,11 +517,12 @@ async function fetchCompleteProxyCatalog(apiKey) {
 }
 
 // Expose strict CyberYozh static residential proxy catalog lookup
-app.get('/api/v1/proxies/static-list', requireAuth, async (req, res) => {
+app.get(['/api/v1/proxies/static-list', '/api/v1/proxies/catalog'], requireAuth, async (req, res) => {
   const apiKey = process.env.CYBERYOZH_API_KEY;
 
-  // Serve from cache if valid
-  if (proxyCatalogCache) {
+  // Serve from cache if valid (10 minutes TTL)
+  const isCacheValid = proxyCatalogCache && (Date.now() - proxyCatalogCacheTime < CACHE_DURATION_MS);
+  if (isCacheValid) {
     return res.json({
       success: true,
       countries: proxyCatalogCache
@@ -516,6 +540,13 @@ app.get('/api/v1/proxies/static-list', requireAuth, async (req, res) => {
     });
   } catch (err) {
     console.error('CyberYozh catalog API error:', err.message);
+    if (proxyCatalogCache) {
+      console.log('Serving stale/disk cached catalog as fallback.');
+      return res.json({
+        success: true,
+        countries: proxyCatalogCache
+      });
+    }
     res.status(503).json({ error: 'Proxy catalog is temporarily unavailable. Please try again in a few moments.' });
   }
 });
@@ -572,6 +603,11 @@ app.get('/api/v1/sms/countries', requireAuth, async (req, res) => {
   }
 });
 
+// Dynamic SMS catalog endpoint cache state variables
+let smsCatalogCache = null;
+let smsCatalogCacheTime = 0;
+const SMS_CACHE_DURATION_MS = 10 * 60 * 1000; // 10 minutes
+
 // Dynamic SMS catalog endpoint retrieving dynamic services and countries
 app.get('/api/v1/sms/catalog', requireAuth, async (req, res) => {
   const isSimulation = process.env.SIMULATION_MODE === 'true';
@@ -594,6 +630,11 @@ app.get('/api/v1/sms/catalog', requireAuth, async (req, res) => {
 
   if (isSimulation) {
     return res.json({ services: defaultServices, countries: defaultCountries });
+  }
+
+  // Serve from cache if valid
+  if (smsCatalogCache && (Date.now() - smsCatalogCacheTime < SMS_CACHE_DURATION_MS)) {
+    return res.json(smsCatalogCache);
   }
 
   try {
@@ -640,12 +681,21 @@ app.get('/api/v1/sms/catalog', requireAuth, async (req, res) => {
     });
     countriesList.sort((a, b) => a.name.localeCompare(b.name));
 
-    res.json({
+    const result = {
       services: services.length > 0 ? services : defaultServices,
       countries: countriesList.length > 0 ? countriesList : defaultCountries
-    });
+    };
+
+    smsCatalogCache = result;
+    smsCatalogCacheTime = Date.now();
+
+    res.json(result);
   } catch (err) {
-    console.error('5SIM catalog API error, falling back to Simulation catalog:', err.message);
+    console.error('5SIM catalog API error:', err.message);
+    if (smsCatalogCache) {
+      console.log('Serving stale 5SIM catalog cache as fallback.');
+      return res.json(smsCatalogCache);
+    }
     res.json({ services: defaultServices, countries: defaultCountries });
   }
 });

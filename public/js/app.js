@@ -647,9 +647,19 @@ async function handleProxyPurchase() {
   const isp = document.getElementById('proxy-isp').value;
   const buyBtn = document.getElementById('buy-proxy-btn');
 
+  const displayBalanceEl = document.getElementById('display-balance');
+  const originalBalance = currentUser ? currentUser.balance : 0;
+  const costNgn = 15000;
+
   try {
     buyBtn.disabled = true;
     buyBtn.innerHTML = '<span class="spinner"></span> Allocation in Progress...';
+
+    // Optimistic balance update
+    if (currentUser) {
+      currentUser.balance -= costNgn;
+      displayBalanceEl.textContent = currentUser.balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
 
     const res = await fetch('/api/proxy/rent', {
       method: 'POST',
@@ -666,16 +676,25 @@ async function handleProxyPurchase() {
     }
 
     if (!res.ok) {
+      // Rollback optimistic balance
+      if (currentUser) {
+        currentUser.balance = originalBalance;
+        displayBalanceEl.textContent = currentUser.balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      }
       showToast(data.error || 'Failed to lease proxy address', 'error');
       return;
     }
 
     showToast(data.message, 'success');
-    logSimConsole(`Proxy IP Rented: ${data.lease.ip_address} (${data.lease.country})`);
     
     fetchUserProfile();
     loadActiveProxies();
   } catch (err) {
+    // Rollback optimistic balance
+    if (currentUser) {
+      currentUser.balance = originalBalance;
+      displayBalanceEl.textContent = currentUser.balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
     showToast('Network error purchasing proxy IP.', 'error');
   } finally {
     buyBtn.disabled = false;
@@ -731,8 +750,9 @@ async function loadActiveProxies() {
 
           <div class="tab-content active" id="pane-wg-${lease.id}">
             <div style="display: flex; flex-direction: column; align-items: center;">
-              <div class="qr-container">
-                <img class="qr-canvas" id="qr-img-${lease.id}" style="width: 160px; height: 160px; object-fit: contain; background: #fff; padding: 5px; border-radius: 0.25rem;" alt="WireGuard QR Profile" />
+              <div class="qr-container" style="position: relative; width: 160px; height: 160px; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.05); border-radius: 0.25rem;">
+                <div class="spinner" id="qr-spinner-${lease.id}" style="position: absolute; width: 24px; height: 24px; border: 3px solid rgba(255,255,255,0.1); border-top-color: var(--cyan);"></div>
+                <img class="qr-canvas" id="qr-img-${lease.id}" style="width: 160px; height: 160px; object-fit: contain; background: #fff; padding: 5px; border-radius: 0.25rem; opacity: 0; transition: opacity 0.3s;" alt="WireGuard QR Profile" />
               </div>
               <button class="btn btn-outline" id="dl-wg-${lease.id}" style="font-size: 0.8rem; padding: 0.5rem 1rem;">
                 📥 Download Config File
@@ -789,8 +809,13 @@ async function loadActiveProxies() {
           if (wgRes.ok) {
             const wgData = await wgRes.json();
             const qrImg = document.getElementById(`qr-img-${lease.id}`);
+            const qrSpinner = document.getElementById(`qr-spinner-${lease.id}`);
             if (qrImg) {
               qrImg.src = wgData.qr_code_base64;
+              qrImg.style.opacity = '1';
+            }
+            if (qrSpinner) {
+              qrSpinner.remove();
             }
           }
         } catch (error) {
@@ -830,11 +855,29 @@ async function loadActiveProxies() {
       });
 
       // Copy SOCKS5 connection string implementation (host:port:user:pass)
-      cardItem.querySelector(`#copy-socks-${lease.id}`).addEventListener('click', (e) => {
+      const copySocksBtn = cardItem.querySelector(`#copy-socks-${lease.id}`);
+      copySocksBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         const connStr = `${lease.ip_address}:${lease.socks5_port}:${lease.socks5_user}:${lease.socks5_pass}`;
         navigator.clipboard.writeText(connStr).then(() => {
-          showToast('SOCKS5 connection details copied to clipboard!', 'success');
+          showToast('SOCKS5 connection details copied!', 'success');
+          
+          const originalText = copySocksBtn.innerHTML;
+          const originalBg = copySocksBtn.style.background;
+          const originalBorder = copySocksBtn.style.borderColor;
+          const originalColor = copySocksBtn.style.color;
+
+          copySocksBtn.innerHTML = 'Copied! ✓';
+          copySocksBtn.style.background = 'rgba(16, 185, 129, 0.15)';
+          copySocksBtn.style.borderColor = 'rgba(16, 185, 129, 0.5)';
+          copySocksBtn.style.color = '#10b981';
+
+          setTimeout(() => {
+            copySocksBtn.innerHTML = originalText;
+            copySocksBtn.style.background = originalBg;
+            copySocksBtn.style.borderColor = originalBorder;
+            copySocksBtn.style.color = originalColor;
+          }, 2000);
         }).catch(err => {
           showToast('Failed to copy credentials automatically', 'error');
         });
@@ -854,9 +897,27 @@ async function handleSMSPurchase() {
   const operator = document.getElementById('sms-operator').value;
   const buyBtn = document.getElementById('buy-sms-btn');
 
+  const displayBalanceEl = document.getElementById('display-balance');
+  const originalBalance = currentUser ? currentUser.balance : 0;
+  
+  // Find dynamic price in our cached catalog
+  let costNgn = 1200; // Default fallback
+  if (cachedSmsCatalog && cachedSmsCatalog.services) {
+    const serviceObj = cachedSmsCatalog.services.find(s => s.id === service);
+    if (serviceObj && serviceObj.price_ngn) {
+      costNgn = serviceObj.price_ngn;
+    }
+  }
+
   try {
     buyBtn.disabled = true;
     buyBtn.innerHTML = '<span class="spinner"></span> Ordering Number...';
+
+    // Optimistic balance update
+    if (currentUser) {
+      currentUser.balance -= costNgn;
+      displayBalanceEl.textContent = currentUser.balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
 
     const res = await fetch('/api/sms/rent', {
       method: 'POST',
@@ -873,6 +934,11 @@ async function handleSMSPurchase() {
     }
 
     if (!res.ok) {
+      // Rollback optimistic balance
+      if (currentUser) {
+        currentUser.balance = originalBalance;
+        displayBalanceEl.textContent = currentUser.balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      }
       showToast(data.error || 'Failed to rent virtual number', 'error');
       return;
     }
@@ -882,6 +948,11 @@ async function handleSMSPurchase() {
     fetchUserProfile();
     loadActiveSMS();
   } catch (err) {
+    // Rollback optimistic balance
+    if (currentUser) {
+      currentUser.balance = originalBalance;
+      displayBalanceEl.textContent = currentUser.balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
     showToast('Network error renting SMS activations.', 'error');
   } finally {
     buyBtn.disabled = false;
@@ -893,9 +964,15 @@ async function handleSMSPurchase() {
 async function loadActiveSMS() {
   const container = document.getElementById('active-sms-container');
   
-  // Clear any existing global UI intervals before rebuilding
+  // Clear any existing global UI intervals/timeouts before rebuilding
   Object.keys(activePollIntervals).forEach(key => {
-    clearInterval(activePollIntervals[key]);
+    if (activePollIntervals[key]) {
+      if (activePollIntervals[key].stop) {
+        activePollIntervals[key].stop();
+      } else {
+        clearInterval(activePollIntervals[key]);
+      }
+    }
     delete activePollIntervals[key];
   });
 
@@ -1024,13 +1101,40 @@ async function loadActiveSMS() {
         updateTimer();
         const timerInterval = setInterval(updateTimer, 1000);
         
-        // Start active status check polling for SMS arrivals
-        const pollInterval = setInterval(() => pollSMSStatus(act.id, timerInterval, pollInterval), 3000);
-        
-        activePollIntervals[act.id] = pollInterval;
+        // Start active status check polling for SMS arrivals with step backoff
+        let elapsedSeconds = 0;
+        let checkTimeoutId = null;
+
+        function checkNext() {
+          let intervalMs = 3000; // 0-60s: 3s
+          if (elapsedSeconds > 180) {
+            intervalMs = 12000; // 180+s: 12s
+          } else if (elapsedSeconds > 60) {
+            intervalMs = 7000; // 60-180s: 7s
+          }
+
+          checkTimeoutId = setTimeout(async () => {
+            elapsedSeconds += (intervalMs / 1000);
+            const statusChanged = await pollSMSStatus(act.id, timerInterval);
+            if (!statusChanged) {
+              checkNext();
+            }
+          }, intervalMs);
+
+          // Track callback wrapper so it can be stopped on cancel or reload
+          activePollIntervals[act.id] = {
+            type: 'timeout',
+            id: checkTimeoutId,
+            stop: () => {
+              clearTimeout(checkTimeoutId);
+            }
+          };
+        }
+
+        checkNext();
 
         // Cancel Active Number click listener
-        cardItemSetupCancel(act.id, timerInterval, pollInterval);
+        cardItemSetupCancel(act.id, timerInterval, activePollIntervals[act.id]);
       }
 
       // Copy OTP listener
@@ -1040,7 +1144,26 @@ async function loadActiveSMS() {
         
         const copyFn = () => {
           navigator.clipboard.writeText(act.otp_code).then(() => {
-            showToast('OTP copied to clipboard!', 'success');
+            showToast('OTP code copied!', 'success');
+            
+            if (copyBtn) {
+              const originalText = copyBtn.innerHTML;
+              const originalBg = copyBtn.style.background;
+              const originalBorder = copyBtn.style.borderColor;
+              const originalColor = copyBtn.style.color;
+
+              copyBtn.innerHTML = 'Copied! ✓';
+              copyBtn.style.background = 'rgba(16, 185, 129, 0.15)';
+              copyBtn.style.borderColor = 'rgba(16, 185, 129, 0.5)';
+              copyBtn.style.color = '#10b981';
+
+              setTimeout(() => {
+                copyBtn.innerHTML = originalText;
+                copyBtn.style.background = originalBg;
+                copyBtn.style.borderColor = originalBorder;
+                copyBtn.style.color = originalColor;
+              }, 2000);
+            }
           });
         };
 
@@ -1055,7 +1178,7 @@ async function loadActiveSMS() {
 }
 
 // Bind cancel button click
-function cardItemSetupCancel(id, timerInterval, pollInterval) {
+function cardItemSetupCancel(id, timerInterval, pollTracker) {
   const cancelBtn = document.getElementById(`cancel-${id}`);
   if (!cancelBtn) return;
 
@@ -1075,10 +1198,15 @@ function cardItemSetupCancel(id, timerInterval, pollInterval) {
       }
 
       clearInterval(timerInterval);
-      clearInterval(pollInterval);
+      if (pollTracker) {
+        if (pollTracker.stop) {
+          pollTracker.stop();
+        } else {
+          clearInterval(pollTracker);
+        }
+      }
       
       showToast(data.message, 'success');
-      logSimConsole(`Cancelled SMS order #${id}. Refund completed.`);
       
       fetchUserProfile();
       loadActiveSMS();
@@ -1090,32 +1218,39 @@ function cardItemSetupCancel(id, timerInterval, pollInterval) {
 }
 
 // Poller method to request activation checks
-async function pollSMSStatus(id, timerInterval, pollInterval) {
+async function pollSMSStatus(id, timerInterval) {
   try {
     const res = await fetch(`/api/sms/poll/${id}`);
     const data = await res.json();
 
-    if (!res.ok) return;
+    if (!res.ok) return false;
 
     // Check if status changed
     if (data.activation.status !== 'waiting') {
       clearInterval(timerInterval);
-      clearInterval(pollInterval);
+      const pollTracker = activePollIntervals[id];
+      if (pollTracker) {
+        if (pollTracker.stop) {
+          pollTracker.stop();
+        } else {
+          clearInterval(pollTracker);
+        }
+      }
       
       if (data.activation.status === 'received') {
         showToast('OTP verification code arrived!', 'success');
-        logSimConsole(`OTP Received for activation #${id}: ${data.activation.otp_code}`);
       } else {
         showToast('Activation timed out and refunded.', 'error');
-        logSimConsole(`Activation #${id} timed out. Refund complete.`);
       }
       
       fetchUserProfile();
       loadActiveSMS();
+      return true; // Status changed, stop polling loop
     }
   } catch (err) {
     console.error('Polling error:', err);
   }
+  return false; // Still waiting
 }
 
 // ----------------------------------------------------
