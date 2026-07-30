@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ProxyVault 🇳🇬 - Portal Dashboard</title>
+  <link rel="stylesheet" href="css/style.css">
+  <!-- Include QRCode CDN Library for client-side canvas rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Desktop Left Sidebar Panel -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="logo">
+          <span>ProxyVault 🇳🇬</span>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="#wallet-card" class="nav-item active">💳 Wallet & Logs</a>
+        <a href="#proxy-card" class="nav-item">🌐 Static IPs</a>
+        <a href="#sms-card" class="nav-item">📱 SMS OTPs</a>
+        <a href="#guide-card" class="nav-item">📘 How to Use Guide</a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="system-status" style="margin-bottom: 1rem;">
+          <div class="status-dot"></div>
+          <span>System Online</span>
+        </div>
+        <button class="btn-text" id="logout-btn-desktop" style="color: var(--red); font-size: 0.85rem; padding: 0.25rem 0; width: 100%; text-align: left; display: flex; align-items: center; gap: 0.5rem;">
+          🚪 Log Out
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Dynamic Content Workspace -->
+    <main class="main-content">
+      <!-- Mobile Top Navigation Header -->
+      <header class="mobile-header">
+        <div class="logo">
+          <span>ProxyVault 🇳🇬</span>
+        </div>
+        <div class="system-status">
+          <div class="status-dot"></div>
+          <span>Online</span>
+        </div>
+        <button class="btn-text" id="logout-btn-mobile" style="color: var(--red); font-size: 0.8rem;">Log Out</button>
+      </header>
+
+      <!-- Mobile Navigation Tabs (visible only on mobile) -->
+      <div class="mobile-tabs" style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem; background: rgba(203, 192, 211, 0.15); padding: 0.35rem; border-radius: 0.5rem; border: 1px solid var(--border-color);">
+        <button class="mobile-tab-item active" data-target="#wallet-card" style="flex: 1; border: none; background: none; padding: 0.4rem; font-size: 0.8rem; font-weight: 600; border-radius: 0.35rem; cursor: pointer; color: var(--text-secondary); transition: var(--transition-smooth); -webkit-tap-highlight-color: transparent;">💳 Wallet</button>
+        <button class="mobile-tab-item" data-target="#proxy-card" style="flex: 1; border: none; background: none; padding: 0.4rem; font-size: 0.8rem; font-weight: 600; border-radius: 0.35rem; cursor: pointer; color: var(--text-secondary); transition: var(--transition-smooth); -webkit-tap-highlight-color: transparent;">🌐 IPs</button>
+        <button class="mobile-tab-item" data-target="#sms-card" style="flex: 1; border: none; background: none; padding: 0.4rem; font-size: 0.8rem; font-weight: 600; border-radius: 0.35rem; cursor: pointer; color: var(--text-secondary); transition: var(--transition-smooth); -webkit-tap-highlight-color: transparent;">📱 SMS</button>
+        <button class="mobile-tab-item" data-target="#guide-card" style="flex: 1; border: none; background: none; padding: 0.4rem; font-size: 0.8rem; font-weight: 600; border-radius: 0.35rem; cursor: pointer; color: var(--text-secondary); transition: var(--transition-smooth); -webkit-tap-highlight-color: transparent;">📘 Guide</button>
+      </div>
+
+      <!-- Horizontally Aligned Responsive Desktop Grid -->
+      <div class="dashboard-cards-grid">
+        
+        <!-- Wallet Card -->
+        <div class="card wallet-banner" id="wallet-card">
+          <div class="wallet-label">Naira Account Wallet</div>
+          <div class="wallet-balance">
+            <span class="currency">₦</span>
+            <span id="display-balance">0.00</span>
+          </div>
+          <div class="wallet-actions">
+            <button class="btn btn-primary" id="open-topup-btn">Top Up Wallet</button>
+            <button class="btn btn-outline" id="open-tx-btn" style="font-size: 0.85rem;">Logs & Audits</button>
+          </div>
+        </div>
+
+        <!-- Activity Audit Log Card -->
+        <div class="card" id="tx-card">
+          <h2 style="font-size: 1.15rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+            📜 Wallet Audits & Log History
+          </h2>
+          <div id="tx-history-list" style="max-height: 280px; overflow-y: auto; font-size: 0.8rem;">
+            <!-- Filled dynamically -->
+          </div>
+        </div>
+
+        <!-- Proxy Management Section -->
+        <div class="card" id="proxy-card">
+          <h2 style="font-size: 1.15rem; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+            🌐 Dedicated Static Residential IPs
+          </h2>
+          <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1.25rem;">
+            Fixed home-broadband connections that do not rotate. 30 days active lease.
+          </p>
+
+          <div class="input-group">
+            <label class="input-label" for="proxy-country">Select Target Location</label>
+            <input type="text" id="proxy-country-search" class="input-control" placeholder="🔍 Search country..." style="margin-bottom: 0.5rem; font-size: 0.85rem; padding: 0.45rem 0.75rem; border-radius: 0.35rem; border: 1px solid var(--border-color); width: 100%;">
+            <select class="input-control input-select" id="proxy-country">
+              <!-- Populated dynamically from API -->
+            </select>
+          </div>
+
+          <div class="input-group" id="proxy-isp-container">
+            <label class="input-label" for="proxy-isp">Select Broadband ISP</label>
+            <select class="input-control input-select" id="proxy-isp">
+              <!-- Populated dynamically based on country -->
+            </select>
+          </div>
+
+          <button class="btn btn-primary" id="buy-proxy-btn" style="width: 100%;">
+            Rent Static IP (₦15,000/mo)
+          </button>
+
+          <!-- Active Proxy Display -->
+          <div id="active-proxies-container" style="margin-top: 1.5rem;">
+            <!-- Filled dynamically -->
+          </div>
+        </div>
+
+        <!-- SMS Activations Section -->
+        <div class="card" id="sms-card">
+          <h2 style="font-size: 1.15rem; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+            📱 SMS OTP Verification
+          </h2>
+          <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1.25rem;">
+            Instant foreign numbers for OTP codes across top platforms. Refunded if code fails to arrive.
+          </p>
+
+          <div class="input-group">
+            <label class="input-label" for="sms-country">Select Number Location</label>
+            <input type="text" id="sms-country-search" class="input-control" placeholder="🔍 Search country..." style="margin-bottom: 0.5rem; font-size: 0.85rem; padding: 0.45rem 0.75rem; border-radius: 0.35rem; border: 1px solid var(--border-color); width: 100%;">
+            <select class="input-control input-select" id="sms-country">
+              <!-- Populated dynamically from API -->
+            </select>
+          </div>
+
+          <div class="input-group">
+            <label class="input-label" for="sms-service">Select OTP Platform</label>
+            <input type="text" id="sms-service-search" class="input-control" placeholder="🔍 Search platform..." style="margin-bottom: 0.5rem; font-size: 0.85rem; padding: 0.45rem 0.75rem; border-radius: 0.35rem; border: 1px solid var(--border-color); width: 100%;">
+            <select class="input-control input-select" id="sms-service">
+              <!-- Populated dynamically from API -->
+            </select>
+          </div>
+
+          <div class="input-group">
+            <label class="input-label" for="sms-operator">Select Carrier / Network</label>
+            <select class="input-control input-select" id="sms-operator">
+              <!-- Populated dynamically from API -->
+            </select>
+          </div>
+
+          <div id="sms-rating-container" style="margin-top: -0.5rem; margin-bottom: 1.25rem;">
+            <span id="sms-rating-badge" class="badge" style="background: rgba(16, 185, 129, 0.15); color: var(--emerald-text); border: 1px solid rgba(16, 185, 129, 0.4); padding: 0.35rem 0.65rem; border-radius: 0.25rem; font-size: 0.72rem; font-weight: bold; display: inline-flex; align-items: center; gap: 0.25rem;">
+              ⚡ Success Rate: --
+            </span>
+          </div>
+
+          <button class="btn btn-secondary" id="buy-sms-btn" style="width: 100%;">
+            Rent Virtual Number
+          </button>
+
+          <!-- Active Activations Display -->
+          <div id="active-sms-container" style="margin-top: 1.5rem;">
+            <!-- Filled dynamically -->
+          </div>
+        </div>
+
+        <!-- How to Use / Safety Guide Card -->
+        <div class="card" id="guide-card">
+          <h2 style="font-size: 1.15rem; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+            📘 How to Use & Safety Guide
+          </h2>
+          <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1.25rem;">
+            Follow this guide to set up your residential IPs and successfully complete your virtual SMS activations.
+          </p>
+
+          <div class="guide-section" style="margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1.25rem;">
+            <h3 style="font-size: 0.95rem; margin-bottom: 0.5rem; color: var(--text-primary); display: flex; align-items: center; gap: 0.35rem;">
+              🌐 Static Residential IPs (CyberYozh)
+            </h3>
+            <ul style="font-size: 0.8rem; color: var(--text-secondary); padding-left: 1.25rem; line-height: 1.5; margin: 0;">
+              <li style="margin-bottom: 0.35rem;">
+                <strong>What they are:</strong> Dedicated home-broadband connections that do not rotate, keeping your location fixed for 30 days. Perfect for PayPal, Stripe, remote work, or server access.
+              </li>
+              <li style="margin-bottom: 0.35rem;">
+                <strong>SOCKS5 Connection (Laptops / Desktops):</strong> Use a browser extension like <strong>SwitchyOmega</strong> or a system-wide proxy switcher like <strong>Proxifier</strong>. Simply enter the provided IP, Port, Username, and Password in the proxy settings.
+              </li>
+              <li style="margin-bottom: 0.35rem;">
+                <strong>WireGuard Tunnel:</strong> Download the WireGuard app, click "Add Tunnel", and paste the provided configuration text. This routes all network traffic securely.
+              </li>
+              <li style="margin-bottom: 0.35rem;">
+                <span style="color: var(--cyan-text); font-weight: bold;">💡 Safe Practice:</span> Match your proxy country and ISP selection to the exact location requested by your target platform. Keep your credentials private to avoid speed degradation.
+              </li>
+            </ul>
+          </div>
+
+          <div class="guide-section">
+            <h3 style="font-size: 0.95rem; margin-bottom: 0.5rem; color: var(--text-primary); display: flex; align-items: center; gap: 0.35rem;">
+              📱 Virtual SMS OTP Verification (5SIM)
+            </h3>
+            <ul style="font-size: 0.8rem; color: var(--text-secondary); padding-left: 1.25rem; line-height: 1.5; margin: 0;">
+              <li style="margin-bottom: 0.35rem;">
+                <strong>How it works:</strong> Temporary numbers leased for 10-15 minutes to receive activation codes.
+              </li>
+              <li style="margin-bottom: 0.35rem; color: var(--emerald-text); font-weight: bold;">
+                ⚡ Select Higher Signals (Ratings): When choosing a carrier/operator, always pick the operator showing the highest success rate badge (e.g. 80% or higher). This ensures the carrier has a high probability of successfully receiving and delivering the OTP for your selected service.
+              </li>
+              <li style="margin-bottom: 0.35rem;">
+                <strong>Automatic Refund Protection:</strong> If the OTP code does not arrive within the 10-15 minute lease window, the order will cancel automatically, and the lease cost will be refunded instantly back to your wallet.
+              </li>
+              <li style="margin-bottom: 0.35rem;">
+                <strong>Pro Tip:</strong> If one operator does not receive the code within 2 to 3 minutes, click "Cancel Number" (which is completely free) and buy another number using a different high-signal operator.
+              </li>
+            </ul>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- Top-Up Wallet Modal -->
+  <div class="modal-overlay" id="topup-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 style="font-weight: 700;">Fund Wallet (Korapay)</h3>
+        <button class="modal-close" id="close-topup-btn">&times;</button>
+      </div>
+      <div class="input-group">
+        <label class="input-label" for="deposit-amount">Amount (NGN)</label>
+        <input class="input-control" type="number" id="deposit-amount" placeholder="e.g. 15000" min="500">
+      </div>
+      <button class="btn btn-primary" id="deposit-submit-btn" style="width: 100%;">Proceed to Payment</button>
+      
+      <p style="font-size: 0.75rem; color: var(--text-muted); text-align: center; margin-top: 1rem;">
+        Pay securely with Debit Card, USSD or Bank Transfer via Korapay.
+      </p>
+    </div>
+  </div>
+
+
+
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Link app.js -->
+  <script src="js/app.js"></script>
+</body>
+</html>

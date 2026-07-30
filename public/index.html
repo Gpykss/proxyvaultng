@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ProxyVault - Dedicated Static Residential IPs & Virtual SMS OTP</title>
+  <meta name="description" content="Nigerian professionals fund with Naira to rent dedicated static residential IPs & global SMS numbers.">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="auth-wrapper">
+    <div class="auth-card">
+      <div class="auth-header">
+        <div class="logo" style="justify-content: center; margin-bottom: 1rem;">
+          <span>ProxyVault 🇳🇬</span>
+        </div>
+        <h1 id="auth-title">Welcome Back</h1>
+        <p id="auth-subtitle">Log in to manage your static IPs and OTP numbers</p>
+      </div>
+
+      <form id="auth-form">
+        <div class="input-group">
+          <label class="input-label" for="auth-email">Email Address</label>
+          <input class="input-control" type="email" id="auth-email" placeholder="name@domain.com" required autocomplete="email">
+        </div>
+        <div class="input-group">
+          <label class="input-label" for="auth-password">Password</label>
+          <input class="input-control" type="password" id="auth-password" placeholder="••••••••" required autocomplete="current-password">
+        </div>
+
+        <button type="submit" class="btn btn-primary" id="auth-submit-btn" style="margin-top: 1rem; width: 100%;">
+          Log In
+        </button>
+      </form>
+
+      <div style="margin-top: 1.5rem; text-align: center; font-size: 0.875rem;">
+        <span id="auth-toggle-text">Don't have an account?</span>
+        <button id="auth-toggle-btn" class="btn-text">Create Account</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toast-container"></div>
+
+  <script>
+    // Simple inline router/auth toggle controller
+    const authForm = document.getElementById('auth-form');
+    const authTitle = document.getElementById('auth-title');
+    const authSubtitle = document.getElementById('auth-subtitle');
+    const submitBtn = document.getElementById('auth-submit-btn');
+    const toggleBtn = document.getElementById('auth-toggle-btn');
+    const toggleText = document.getElementById('auth-toggle-text');
+    
+    let isLogin = true;
+
+    // Check if session is already active
+    async function checkActiveSession() {
+      try {
+        const res = await fetch('/api/auth/me');
+        if (res.ok) {
+          window.location.href = '/dashboard.html';
+        }
+      } catch (err) {
+        console.log('No active session.');
+      }
+    }
+    checkActiveSession();
+
+    toggleBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      isLogin = !isLogin;
+      if (isLogin) {
+        authTitle.textContent = 'Welcome Back';
+        authSubtitle.textContent = 'Log in to manage your static IPs and OTP numbers';
+        submitBtn.textContent = 'Log In';
+        submitBtn.className = 'btn btn-primary';
+        toggleText.textContent = "Don't have an account?";
+        toggleBtn.textContent = 'Create Account';
+      } else {
+        authTitle.textContent = 'Create Account';
+        authSubtitle.textContent = 'Register to fund wallet and allocate global resources';
+        submitBtn.textContent = 'Sign Up';
+        submitBtn.className = 'btn btn-secondary';
+        toggleText.textContent = 'Already registered?';
+        toggleBtn.textContent = 'Log In';
+      }
+    });
+
+    authForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('auth-email').value;
+      const password = document.getElementById('auth-password').value;
+
+      const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
+
+      try {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner" style="border-top-color: #fff; width: 14px; height: 14px;"></span> Processing...';
+
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+
+        const data = await res.json();
+        
+        if (!res.ok) {
+          showToast(data.error || 'Request failed', 'error');
+          return;
+        }
+
+        showToast(isLogin ? 'Welcome to ProxyVault!' : 'Registration successful! Logging in...', 'success');
+        
+        setTimeout(() => {
+          window.location.href = '/dashboard.html';
+        }, 1200);
+
+      } catch (err) {
+        showToast('Network error, please try again.', 'error');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = isLogin ? 'Log In' : 'Sign Up';
+      }
+    });
+
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.innerHTML = `<span>${message}</span>`;
+      container.appendChild(toast);
+      
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 400);
+      }, 3000);
+    }
+  </script>
+</body>
+</html>
