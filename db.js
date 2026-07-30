@@ -33,7 +33,7 @@ async function connectDB() {
   return cached.conn;
 }
 
-const dbReady = connectDB();
+
 
 // 1. User Schema definition
 const UserSchema = new mongoose.Schema({
@@ -91,7 +91,9 @@ const SmsActivation = mongoose.model('SmsActivation', SmsActivationSchema);
 
 module.exports = {
   connectDB,
-  dbReady,
+  get dbReady() {
+    return connectDB();
+  },
   User,
   Transaction,
   ProxyLease,

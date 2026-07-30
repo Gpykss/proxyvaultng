@@ -1446,23 +1446,27 @@ app.get('/api/wallet/transactions', requireAuth, async (req, res) => {
 
 
 // ----------------------------------------------------
-dbReady.then(() => {
-  app.listen(PORT, () => {
-    console.log(`ProxyVault backend running on http://localhost:${PORT}`);
-    console.log(`Simulation Mode: ${process.env.SIMULATION_MODE}`);
-    
-    // Prime proxy catalog cache in the background 3 seconds after startup
-    setTimeout(async () => {
-      const apiKey = process.env.CYBERYOZH_API_KEY;
-      const isSimulation = process.env.SIMULATION_MODE === 'true';
-      if (!isSimulation && apiKey && !apiKey.startsWith('cy_mock_')) {
-        try {
-          proxyCatalogCache = await fetchCompleteProxyCatalog(apiKey);
-          proxyCatalogCacheTime = Date.now();
-        } catch (e) {
-          console.error('Initial catalog cache priming failed:', e.message);
+if (require.main === module) {
+  dbReady.then(() => {
+    app.listen(PORT, () => {
+      console.log(`ProxyVault backend running on http://localhost:${PORT}`);
+      console.log(`Simulation Mode: ${process.env.SIMULATION_MODE}`);
+      
+      // Prime proxy catalog cache in the background 3 seconds after startup
+      setTimeout(async () => {
+        const apiKey = process.env.CYBERYOZH_API_KEY;
+        const isSimulation = process.env.SIMULATION_MODE === 'true';
+        if (!isSimulation && apiKey && !apiKey.startsWith('cy_mock_')) {
+          try {
+            proxyCatalogCache = await fetchCompleteProxyCatalog(apiKey);
+            proxyCatalogCacheTime = Date.now();
+          } catch (e) {
+            console.error('Initial catalog cache priming failed:', e.message);
+          }
         }
-      }
-    }, 3000);
+      }, 3000);
+    });
   });
-});
+}
+
+module.exports = app;
