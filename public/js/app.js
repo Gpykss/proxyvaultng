@@ -488,52 +488,74 @@ function setupEventListeners() {
   if (logoutBtnDk) logoutBtnDk.addEventListener('click', handleLogout);
   if (logoutBtnMb) logoutBtnMb.addEventListener('click', handleLogout);
 
+// Sidebar navigation click helpers for tab switching (Global scope)
+function switchDashboardTab(targetId) {
+  const walletCard = document.getElementById('wallet-card');
+  const txCard = document.getElementById('tx-card');
+  const proxyCard = document.getElementById('proxy-card');
+  const smsCard = document.getElementById('sms-card');
+  const guideCard = document.getElementById('guide-card');
+
+  if (walletCard) walletCard.style.display = 'none';
+  if (txCard) txCard.style.display = 'none';
+  if (proxyCard) proxyCard.style.display = 'none';
+  if (smsCard) smsCard.style.display = 'none';
+  if (guideCard) guideCard.style.display = 'none';
+
+  if (targetId === '#wallet-card') {
+    if (walletCard) walletCard.style.display = 'block';
+    if (txCard) txCard.style.display = 'block';
+  } else if (targetId === '#proxy-card') {
+    if (proxyCard) proxyCard.style.display = 'block';
+  } else if (targetId === '#sms-card') {
+    if (smsCard) smsCard.style.display = 'block';
+  } else if (targetId === '#guide-card') {
+    if (guideCard) guideCard.style.display = 'block';
+  }
+
+  // Keep mobile tab highlights in sync
+  const mobileTabItems = document.querySelectorAll('.mobile-tab-item');
+  mobileTabItems.forEach(item => {
+    if (item.getAttribute('data-target') === targetId) {
+      item.classList.add('active');
+    } else {
+      item.classList.remove('active');
+    }
+  });
+
+  // Keep desktop sidebar highlights in sync
+  const navItems = document.querySelectorAll('.nav-item');
+  navItems.forEach(item => {
+    if (item.getAttribute('href') === targetId) {
+      item.classList.add('active');
+    } else {
+      item.classList.remove('active');
+    }
+  });
+}
+
+function setupEventListeners() {
+  // Logout handler
+  const handleLogout = async () => {
+    try {
+      const res = await fetch('/api/auth/logout', { method: 'POST' });
+      if (res.ok) {
+        showToast('Logged out successfully', 'success');
+        setTimeout(() => window.location.href = '/index.html', 1000);
+      }
+    } catch (err) {
+      showToast('Logout failed', 'error');
+    }
+  };
+
+  // Bind logout buttons
+  const logoutBtnDk = document.getElementById('logout-btn-desktop');
+  const logoutBtnMb = document.getElementById('logout-btn-mobile');
+  if (logoutBtnDk) logoutBtnDk.addEventListener('click', handleLogout);
+  if (logoutBtnMb) logoutBtnMb.addEventListener('click', handleLogout);
+
   // Sidebar navigation click helpers for tab switching
   const navItems = document.querySelectorAll('.nav-item');
-  const mobileTabItems = document.querySelectorAll('.mobile-tab-item');
-
-  function switchDashboardTab(targetId) {
-    const walletCard = document.getElementById('wallet-card');
-    const txCard = document.getElementById('tx-card');
-    const proxyCard = document.getElementById('proxy-card');
-    const smsCard = document.getElementById('sms-card');
-    const guideCard = document.getElementById('guide-card');
-
-    if (walletCard) walletCard.style.display = 'none';
-    if (txCard) txCard.style.display = 'none';
-    if (proxyCard) proxyCard.style.display = 'none';
-    if (smsCard) smsCard.style.display = 'none';
-    if (guideCard) guideCard.style.display = 'none';
-
-    if (targetId === '#wallet-card') {
-      if (walletCard) walletCard.style.display = 'block';
-      if (txCard) txCard.style.display = 'block';
-    } else if (targetId === '#proxy-card') {
-      if (proxyCard) proxyCard.style.display = 'block';
-    } else if (targetId === '#sms-card') {
-      if (smsCard) smsCard.style.display = 'block';
-    } else if (targetId === '#guide-card') {
-      if (guideCard) guideCard.style.display = 'block';
-    }
-
-    // Keep mobile tab highlights in sync
-    mobileTabItems.forEach(item => {
-      if (item.getAttribute('data-target') === targetId) {
-        item.classList.add('active');
-      } else {
-        item.classList.remove('active');
-      }
-    });
-
-    // Keep desktop sidebar highlights in sync
-    navItems.forEach(item => {
-      if (item.getAttribute('href') === targetId) {
-        item.classList.add('active');
-      } else {
-        item.classList.remove('active');
-      }
-    });
-  }
 
   // Switch to initial active tab on dashboard load
   const initialActive = document.querySelector('.nav-item.active');
