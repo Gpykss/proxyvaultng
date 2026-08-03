@@ -468,25 +468,6 @@ function updateBalanceDisplay(koboBalance) {
 // ----------------------------------------------------
 // EVENT LISTENERS & MODALS
 // ----------------------------------------------------
-function setupEventListeners() {
-  // Logout handler
-  const handleLogout = async () => {
-    try {
-      const res = await fetch('/api/auth/logout', { method: 'POST' });
-      if (res.ok) {
-        showToast('Logged out successfully', 'success');
-        setTimeout(() => window.location.href = '/index.html', 1000);
-      }
-    } catch (err) {
-      showToast('Logout failed', 'error');
-    }
-  };
-
-  // Bind logout buttons
-  const logoutBtnDk = document.getElementById('logout-btn-desktop');
-  const logoutBtnMb = document.getElementById('logout-btn-mobile');
-  if (logoutBtnDk) logoutBtnDk.addEventListener('click', handleLogout);
-  if (logoutBtnMb) logoutBtnMb.addEventListener('click', handleLogout);
 
 // Sidebar navigation click helpers for tab switching (Global scope)
 function switchDashboardTab(targetId) {
@@ -556,6 +537,7 @@ function setupEventListeners() {
 
   // Sidebar navigation click helpers for tab switching
   const navItems = document.querySelectorAll('.nav-item');
+  const mobileTabItems = document.querySelectorAll('.mobile-tab-item');
 
   // Switch to initial active tab on dashboard load
   const initialActive = document.querySelector('.nav-item.active');

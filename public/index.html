@@ -1,15 +1,178 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ProxyVault - Dedicated Static Residential IPs & Virtual SMS OTP</title>
-  <meta name="description" content="Nigerian professionals fund with Naira to rent dedicated static residential IPs & global SMS numbers.">
+  <meta name="description"
+    content="Nigerian professionals fund with Naira to rent dedicated static residential IPs & global SMS numbers.">
   <link rel="stylesheet" href="css/style.css">
 </head>
-<body>
-  <div class="auth-wrapper">
+
+<body class="dark-theme">
+  <!-- Navigation Bar -->
+  <header class="navbar">
+    <div class="logo">
+      <span>ProxyVault 🇳🇬</span>
+    </div>
+    <nav class="nav-links">
+      <a href="#features" class="nav-link">Features</a>
+      <a href="#workflow" class="nav-link">How It Works</a>
+      <a href="#metrics" class="nav-link">Metrics</a>
+    </nav>
+    <div class="nav-actions">
+      <button class="btn btn-outline" id="login-nav-btn" style="width: auto; padding: 0.6rem 1.25rem; font-size: 0.875rem;">Log In</button>
+      <button class="btn btn-primary" id="signup-nav-btn" style="width: auto; padding: 0.6rem 1.25rem; font-size: 0.875rem;">Get Started</button>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="hero-section">
+    <div class="hero-badge">⚡ DEDICATED STATIC RESIDENTIAL IPS & SMS OTP</div>
+    <h1 class="hero-title">Dedicated Static Residential IPs & Virtual SMS OTP for Professionals</h1>
+    <p class="hero-subtitle">Nigeria's premier portal for dedicated clean residential proxy allocations and instant global virtual SMS verification codes.</p>
+    <div class="hero-actions">
+      <button class="btn btn-primary" id="hero-get-started-btn" style="width: auto; padding: 0.875rem 2rem;">Get Started Now</button>
+      <a href="#features" class="btn btn-outline" style="width: auto; padding: 0.875rem 2rem; text-decoration: none; display: inline-flex; align-items: center;">Explore Features</a>
+    </div>
+
+    <!-- Terminal Mockup -->
+    <div class="terminal-mockup">
+      <div class="terminal-header">
+        <div class="terminal-dot red"></div>
+        <div class="terminal-dot yellow"></div>
+        <div class="terminal-dot green"></div>
+        <div class="terminal-title">proxyvault-api-session</div>
+      </div>
+      <div class="terminal-body">
+        <div class="terminal-line"><span class="terminal-prompt">user@proxyvault:~$</span> <span class="terminal-output">curl -X POST https://proxyvaultng.vercel.app/api/proxy/rent \</span></div>
+        <div class="terminal-line"><span class="terminal-output">  -H "Authorization: Bearer pv_token_..." \</span></div>
+        <div class="terminal-line"><span class="terminal-output">  -d '{"country": "US", "isp": "comcast"}'</span></div>
+        <div class="terminal-line"><span class="terminal-prompt">user@proxyvault:~$</span> <span class="terminal-output">{"status": "success", "ip": "173.23.45.102", "port": 1080, "type": "SOCKS5"}</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Metrics Bar -->
+  <section class="metrics-bar" id="metrics">
+    <div class="metrics-grid">
+      <div class="metric-item">
+        <span class="metric-value">99.9%</span>
+        <span class="metric-label">Uptime SLA</span>
+      </div>
+      <div class="metric-item">
+        <span class="metric-value">150+ Mbps</span>
+        <span class="metric-label">Residential Speeds</span>
+      </div>
+      <div class="metric-item">
+        <span class="metric-value">10,000+</span>
+        <span class="metric-label">Active Leases</span>
+      </div>
+      <div class="metric-item">
+        <span class="metric-value">Naira ₦</span>
+        <span class="metric-label">Direct Wallet Funding</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Grid -->
+  <section class="features-section" id="features">
+    <div class="section-header">
+      <h2 class="section-title">Premium Proxy & Verification Services</h2>
+      <p class="section-subtitle">Engineered specifically for developers and remote professionals requiring absolute stability and reliability.</p>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">🌐</div>
+        <h3 class="feature-card-title">Static Residential IPs</h3>
+        <p class="feature-card-text">Rent dedicated residential IPs (Comcast, Verizon, BT, Rogers) that do not rotate. Keep your location fixed for 30 days securely.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📱</div>
+        <h3 class="feature-card-title">Virtual SMS OTP</h3>
+        <p class="feature-card-text">Instantly acquire global virtual phone numbers to receive verification codes for Telegram, WhatsApp, ChatGPT, and Google.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">💳</div>
+        <h3 class="feature-card-title">Local Currency Wallet</h3>
+        <p class="feature-card-text">Fund your wallet in Naira using cards, bank transfer, or USSD via Korapay. Automatic instant allocations without manual delays.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Stepper Workflows -->
+  <section class="workflow-section" id="workflow">
+    <div class="section-header">
+      <h2 class="section-title">Get Started in 3 Simple Steps</h2>
+      <p class="section-subtitle">No complicated sign-up or verification processes. Start allocating resources in minutes.</p>
+    </div>
+    <div class="workflow-grid">
+      <div class="workflow-step">
+        <div class="step-number">1</div>
+        <h3 class="step-title">Create Account</h3>
+        <p class="step-description">Register an email address instantly on our portal.</p>
+      </div>
+      <div class="workflow-step">
+        <div class="step-number">2</div>
+        <h3 class="step-title">Fund Wallet</h3>
+        <p class="step-description">Add NGN funds via our secure Korapay payment gateway.</p>
+      </div>
+      <div class="workflow-step">
+        <div class="step-number">3</div>
+        <h3 class="step-title">Deploy Resources</h3>
+        <p class="step-description">Instantly select target countries and activate IPs or SMS numbers.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA Banner Section -->
+  <section class="cta-section">
+    <div class="cta-container">
+      <h2 class="section-title" style="color: #fff !important; margin-bottom: 1rem;">Ready to Secure Your Workspace?</h2>
+      <p class="section-subtitle" style="color: var(--text-secondary) !important; margin-bottom: 2rem;">Get started now and allocate your first residential IP or virtual SMS activation in seconds.</p>
+      <button class="btn btn-primary" id="cta-get-started-btn" style="width: auto; padding: 0.875rem 2.5rem;">Deploy Resources Now</button>
+    </div>
+  </section>
+
+  <!-- Footer Section -->
+  <footer class="footer">
+    <div class="footer-grid">
+      <div>
+        <div class="logo">ProxyVault 🇳🇬</div>
+        <p class="footer-brand-tagline">Secure static residential SOCKS5 proxies and virtual global phone numbers for Nigerian professionals.</p>
+      </div>
+      <div>
+        <h4 class="footer-title">Products</h4>
+        <ul class="footer-links">
+          <li><a href="#features" class="footer-link">Static IPs</a></li>
+          <li><a href="#features" class="footer-link">SMS OTPs</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 class="footer-title">Platform</h4>
+        <ul class="footer-links">
+          <li><a href="#workflow" class="footer-link">How It Works</a></li>
+          <li><a href="#metrics" class="footer-link">Uptime Status</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 class="footer-title">Support</h4>
+        <ul class="footer-links">
+          <li><a href="mailto:support@proxyvault.ng" class="footer-link">Contact Support</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-copyright">
+      &copy; 2026 ProxyVault. All rights reserved.
+    </div>
+  </footer>
+
+  <!-- Authentication Modal Overlay (hidden by default) -->
+  <div class="modal-overlay" id="auth-modal">
     <div class="auth-card">
+      <button class="modal-close" id="auth-modal-close">&times;</button>
       <div class="auth-header">
         <div class="logo" style="justify-content: center; margin-bottom: 1rem;">
           <span>ProxyVault 🇳🇬</span>
@@ -21,11 +184,13 @@
       <form id="auth-form">
         <div class="input-group">
           <label class="input-label" for="auth-email">Email Address</label>
-          <input class="input-control" type="email" id="auth-email" placeholder="name@domain.com" required autocomplete="email">
+          <input class="input-control" type="email" id="auth-email" placeholder="name@domain.com" required
+            autocomplete="email">
         </div>
         <div class="input-group">
           <label class="input-label" for="auth-password">Password</label>
-          <input class="input-control" type="password" id="auth-password" placeholder="••••••••" required autocomplete="current-password">
+          <input class="input-control" type="password" id="auth-password" placeholder="••••••••" required
+            autocomplete="current-password">
         </div>
 
         <button type="submit" class="btn btn-primary" id="auth-submit-btn" style="margin-top: 1rem; width: 100%;">
@@ -42,6 +207,7 @@
 
   <div class="toast-container" id="toast-container"></div>
 
+  <!-- Client-side Logic Script -->
   <script>
     // Automatically include credentials (session cookies) on all fetch requests
     const originalFetch = window.fetch;
@@ -50,17 +216,21 @@
       return originalFetch(url, options);
     };
 
-    // Simple inline router/auth toggle controller
+    // Form elements and toggle triggers
     const authForm = document.getElementById('auth-form');
     const authTitle = document.getElementById('auth-title');
     const authSubtitle = document.getElementById('auth-subtitle');
     const submitBtn = document.getElementById('auth-submit-btn');
     const toggleBtn = document.getElementById('auth-toggle-btn');
     const toggleText = document.getElementById('auth-toggle-text');
-    
+
+    // Modal elements
+    const authModal = document.getElementById('auth-modal');
+    const authModalClose = document.getElementById('auth-modal-close');
+
     let isLogin = true;
 
-    // Check if session is already active
+    // Check if session is already active and bypass login page if authed
     async function checkActiveSession() {
       try {
         const res = await fetch('/api/auth/me');
@@ -73,6 +243,7 @@
     }
     checkActiveSession();
 
+    // Toggle between login and registration within the modal
     toggleBtn.addEventListener('click', (e) => {
       e.preventDefault();
       isLogin = !isLogin;
@@ -93,6 +264,7 @@
       }
     });
 
+    // Handle form submit actions
     authForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const email = document.getElementById('auth-email').value;
@@ -111,14 +283,14 @@
         });
 
         const data = await res.json();
-        
+
         if (!res.ok) {
           showToast(data.error || 'Request failed', 'error');
           return;
         }
 
         showToast(isLogin ? 'Welcome to ProxyVault!' : 'Registration successful! Logging in...', 'success');
-        
+
         setTimeout(() => {
           window.location.href = '/dashboard.html';
         }, 1200);
@@ -131,18 +303,68 @@
       }
     });
 
+    // Helper Toast alerter
     function showToast(message, type = 'success') {
       const container = document.getElementById('toast-container');
       const toast = document.createElement('div');
       toast.className = `toast ${type}`;
       toast.innerHTML = `<span>${message}</span>`;
       container.appendChild(toast);
-      
+
       setTimeout(() => {
         toast.style.opacity = '0';
         setTimeout(() => toast.remove(), 400);
       }, 3000);
     }
+
+    // Modal Trigger listeners
+    const modalTriggers = [
+      document.getElementById('login-nav-btn'),
+      document.getElementById('signup-nav-btn'),
+      document.getElementById('hero-get-started-btn'),
+      document.getElementById('cta-get-started-btn')
+    ];
+
+    modalTriggers.forEach(btn => {
+      if (btn) {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          // If a registration/get started button is clicked, toggle state to register
+          if (btn.id === 'signup-nav-btn' || btn.id === 'hero-get-started-btn' || btn.id === 'cta-get-started-btn') {
+            isLogin = false;
+            authTitle.textContent = 'Create Account';
+            authSubtitle.textContent = 'Register to fund wallet and allocate global resources';
+            submitBtn.textContent = 'Sign Up';
+            submitBtn.className = 'btn btn-secondary';
+            toggleText.textContent = 'Already registered?';
+            toggleBtn.textContent = 'Log In';
+          } else {
+            isLogin = true;
+            authTitle.textContent = 'Welcome Back';
+            authSubtitle.textContent = 'Log in to manage your static IPs and OTP numbers';
+            submitBtn.textContent = 'Log In';
+            submitBtn.className = 'btn btn-primary';
+            toggleText.textContent = "Don't have an account?";
+            toggleBtn.textContent = 'Create Account';
+          }
+          authModal.classList.add('active');
+        });
+      }
+    });
+
+    if (authModalClose) {
+      authModalClose.addEventListener('click', () => {
+        authModal.classList.remove('active');
+      });
+    }
+
+    // Close modal overlay on outer card click
+    authModal.addEventListener('click', (e) => {
+      if (e.target === authModal) {
+        authModal.classList.remove('active');
+      }
+    });
   </script>
 </body>
+
 </html>
