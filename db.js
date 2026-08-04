@@ -84,10 +84,26 @@ const SmsActivationSchema = new mongoose.Schema({
   created_at: { type: Date, default: Date.now }
 });
 
+// 5. Telegram Ticket Mapping Schema (for support relay bot)
+const TelegramTicketMappingSchema = new mongoose.Schema({
+  admin_message_id: { type: Number, required: true, unique: true },
+  user_telegram_id: { type: Number, required: true },
+  created_at: { type: Date, default: Date.now, expires: 172800 } // automatically delete old ticket mappings after 2 days
+});
+
+// 6. Telegram Support Session Schema (tracks active session states & timeouts)
+const TelegramSupportSessionSchema = new mongoose.Schema({
+  user_telegram_id: { type: Number, required: true, unique: true },
+  last_admin_message_id: { type: Number, required: true },
+  last_activity: { type: Date, default: Date.now }
+});
+
 const User = mongoose.model('User', UserSchema);
 const Transaction = mongoose.model('Transaction', TransactionSchema);
 const ProxyLease = mongoose.model('ProxyLease', ProxyLeaseSchema);
 const SmsActivation = mongoose.model('SmsActivation', SmsActivationSchema);
+const TelegramTicketMapping = mongoose.model('TelegramTicketMapping', TelegramTicketMappingSchema);
+const TelegramSupportSession = mongoose.model('TelegramSupportSession', TelegramSupportSessionSchema);
 
 module.exports = {
   connectDB,
@@ -98,5 +114,9 @@ module.exports = {
   Transaction,
   ProxyLease,
   SmsActivation,
+  TelegramTicketMapping,
+  TelegramSupportSession,
   mongoose
 };
+
+

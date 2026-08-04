@@ -1393,3 +1393,36 @@ header {
   }
 }
 
+/* Floating Telegram Support Button Styling */
+.floating-support-btn {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  background: var(--primary, #5A189A);
+  color: #fff !important;
+  padding: 0.75rem 1.25rem;
+  border-radius: 50px;
+  text-decoration: none !important;
+  font-weight: 700;
+  font-size: 0.85rem;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  z-index: 9999;
+  transition: transform 0.3s ease, background-color 0.3s ease;
+}
+.floating-support-btn:hover {
+  transform: scale(1.05);
+  background: var(--primary-hover, #7B2CBF);
+}
+@media (max-width: 768px) {
+  .floating-support-btn {
+    bottom: 5.5rem; /* Raised on mobile to keep clear of mobile bottom tab navigation bar space */
+    right: 1rem;
+    padding: 0.6rem 1.05rem;
+    font-size: 0.8rem;
+  }
+}
+
+

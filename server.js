@@ -7,9 +7,10 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 const QRCode = require('qrcode');
-const { User, Transaction, ProxyLease, SmsActivation, dbReady, connectDB } = require('./db');
+const { User, Transaction, ProxyLease, SmsActivation, TelegramTicketMapping, TelegramSupportSession, dbReady, connectDB } = require('./db');
 const proxyService = require('./services/proxyService');
 const smsService = require('./services/smsService');
+const balanceNotifier = require('./services/balanceNotifier');
 
 const SMS_PRICES_KOBO = {
   telegram: 120000, // ₦1,200
@@ -1512,6 +1513,374 @@ app.get('/api/wallet/transactions', requireAuth, async (req, res) => {
 });
 
 
+// Helper to send messages
+async function sendTelegramMessage(chatId, text, replyMarkup = null) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) return;
+  try {
+    const payload = {
+      chat_id: chatId,
+      text: text,
+      parse_mode: 'Markdown'
+    };
+    if (replyMarkup) {
+      payload.reply_markup = replyMarkup;
+    }
+    await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, payload);
+  } catch (err) {
+    console.error('Failed to send Telegram message:', err.response ? err.response.data : err.message);
+  }
+}
+
+// Shared Telegram update handler logic with middleware logging and command handlers
+async function handleTelegramUpdate(update) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) return;
+
+  const adminGroupChatId = process.env.TELEGRAM_ADMIN_CHAT_ID
+    ? Number(process.env.TELEGRAM_ADMIN_CHAT_ID.replace(/^--/, '-'))
+    : null;
+
+  // Global event logger: prints all incoming Telegram traffic to the console
+  console.log('Incoming Telegram update received:', JSON.stringify(update));
+
+  try {
+    // 1. Handle user private chat messages
+    if (update.message && update.message.chat.type === 'private') {
+      const chat = update.message.chat;
+      const text = update.message.text;
+      const userId = chat.id;
+
+      // Handle start command
+      if (text === '/start' || text === '/help') {
+        console.log(`Received /start command from User ID: ${userId} (${chat.username || 'No username'})`);
+        await sendTelegramMessage(userId, `🇳🇬 *Welcome to ProxyVault Support Desk!*\n\nHow can we help you today? Please tap one of the guides below or simply type your support question directly.`, {
+          inline_keyboard: [
+            [
+              { text: '🌐 Proxy Setup Guide', callback_data: 'guide_proxy' },
+              { text: '📱 SMS Verification Help', callback_data: 'guide_sms' }
+            ],
+            [
+              { text: '💳 Deposit & Billing Info', callback_data: 'guide_billing' },
+              { text: '💬 Speak to Human', callback_data: 'speak_human' }
+            ]
+          ]
+        });
+        return;
+      }
+
+      if (!adminGroupChatId) {
+        console.error('Telegram admin chat ID is not configured.');
+        return;
+      }
+
+      // Check if there is an active session
+      let session = await TelegramSupportSession.findOne({ user_telegram_id: userId });
+      const now = new Date();
+
+      if (session) {
+        // If session exists but has been inactive for more than 30 minutes, timeout and delete it
+        const diffMinutes = (now - new Date(session.last_activity)) / (1000 * 60);
+        if (diffMinutes > 30) {
+          console.log(`Session for user ${userId} timed out. Initializing new support ticket.`);
+          await TelegramSupportSession.deleteOne({ _id: session._id });
+          await TelegramTicketMapping.deleteMany({ user_telegram_id: userId });
+          session = null;
+        }
+      }
+
+      const userName = [chat.first_name, chat.last_name].filter(Boolean).join(' ') || 'User';
+      const usernameHandle = chat.username ? `@${chat.username}` : 'No username';
+
+      if (!session) {
+        // 1. NEW SESSION: Send ticket headers & forward message directly
+        console.log(`Relaying NEW support ticket from user ${userId} to admin group ${adminGroupChatId}`);
+        const headerText = `🎫 *NEW SUPPORT TICKET*\n👤 *User:* ${userName}\n🏷️ *Handle:* ${usernameHandle}\n🆔 *Telegram ID:* \`${userId}\``;
+        await sendTelegramMessage(adminGroupChatId, headerText);
+
+        const copyRes = await axios.post(`https://api.telegram.org/bot${token}/copyMessage`, {
+          chat_id: adminGroupChatId,
+          from_chat_id: userId,
+          message_id: update.message.message_id
+        });
+
+        if (copyRes.data && copyRes.data.result) {
+          const adminMsgId = copyRes.data.result.message_id;
+
+          // Initialize support session state
+          await TelegramSupportSession.create({
+            user_telegram_id: userId,
+            last_admin_message_id: adminMsgId,
+            last_activity: now
+          });
+
+          // Save message ID lookup mapping
+          await TelegramTicketMapping.create({
+            admin_message_id: adminMsgId,
+            user_telegram_id: userId
+          });
+        }
+      } else {
+        // 2. ACTIVE SESSION: Forward follow-up message nested under the same thread!
+        console.log(`Relaying active session follow-up message from user ${userId}`);
+        const copyRes = await axios.post(`https://api.telegram.org/bot${token}/copyMessage`, {
+          chat_id: adminGroupChatId,
+          from_chat_id: userId,
+          message_id: update.message.message_id,
+          reply_to_message_id: session.last_admin_message_id
+        });
+
+        if (copyRes.data && copyRes.data.result) {
+          const adminMsgId = copyRes.data.result.message_id;
+
+          // Update active session metadata
+          session.last_admin_message_id = adminMsgId;
+          session.last_activity = now;
+          await session.save();
+
+          // Save mapping for this message ID
+          await TelegramTicketMapping.create({
+            admin_message_id: adminMsgId,
+            user_telegram_id: userId
+          });
+        }
+      }
+
+      return;
+    }
+
+    // 2. Handle interactive menu callback queries
+    if (update.callback_query) {
+      const cb = update.callback_query;
+      const userId = cb.message.chat.id;
+      const data = cb.data;
+
+      console.log(`Received callback query from User ID: ${userId}, option: ${data}`);
+
+      // Acknowledge callback click to clear loading
+      await axios.post(`https://api.telegram.org/bot${token}/answerCallbackQuery`, {
+        callback_query_id: cb.id
+      });
+
+      if (data === 'guide_proxy') {
+        await sendTelegramMessage(userId, `🌐 *Proxy Setup Guide*\n\n1. For laptops/desktops, enter the SOCKS5 proxy IP, Port, Username, and Password in SwitchyOmega (browser) or Proxifier.\n2. For WireGuard, download the WireGuard client, click 'Add Tunnel', and paste the configuration profile.\n3. Make sure to choose the correct target country and resident carrier.`);
+      } else if (data === 'guide_sms') {
+        await sendTelegramMessage(userId, `📱 *SMS Verification Help*\n\n1. Select higher signal operators (>80% success rate) for reliability.\n2. Leases last 10-15 minutes. If the OTP code does not arrive within 3 minutes, click 'Cancel Number' (free) and choose a different operator.\n3. Cancelled numbers are automatically refunded to your wallet.`);
+      } else if (data === 'guide_billing') {
+        await sendTelegramMessage(userId, `💳 *Deposit & Billing Info*\n\n1. Click 'Top Up Wallet' to fund Naira via bank transfer, card, or USSD securely.\n2. Minimum deposit is ₦500.\n3. Credits are automatic and instant.`);
+      } else if (data === 'speak_human') {
+        await sendTelegramMessage(userId, `💬 Please type your question or describe your issue here. Our support team will reply directly in this chat!`);
+      }
+      return;
+    }
+
+    // 3. Handle replies/commands in the admin group back to the user
+    if (update.message && update.message.reply_to_message && update.message.chat.id === adminGroupChatId) {
+      const adminMsgId = update.message.reply_to_message.message_id;
+      const text = update.message.text ? update.message.text.trim() : '';
+      const mapping = await TelegramTicketMapping.findOne({ admin_message_id: adminMsgId });
+
+      if (mapping) {
+        const userChatId = mapping.user_telegram_id;
+
+        // Check if the reply is a ticket closure command
+        if (text === '/close' || text === '/resolve') {
+          console.log(`Admin requested closure for ticket associated with User ID: ${userChatId}`);
+          try {
+            // 1. Send closure message to customer
+            const endUserMessage = "✅ *Ticket Resolved*\n\nYour support session has been closed by an agent. If you need assistance again, simply type a new message or send `/start`. Thank you for using ProxyVault!";
+            await sendTelegramMessage(userChatId, endUserMessage);
+
+            // 2. Notify Admin Group
+            await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, {
+              chat_id: adminGroupChatId,
+              text: `🔒 *Ticket for User ID ${userChatId} has been marked closed.*`,
+              reply_to_message_id: update.message.message_id
+            });
+
+            // 3. Seal the ticket by removing all database mappings and the active session state
+            await TelegramTicketMapping.deleteMany({ user_telegram_id: userChatId });
+            await TelegramSupportSession.deleteOne({ user_telegram_id: userChatId });
+          } catch (closeErr) {
+            console.error('Error executing ticket closure:', closeErr.message);
+            await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, {
+              chat_id: adminGroupChatId,
+              text: `❌ Error closing session. The user might have blocked the bot.`,
+              reply_to_message_id: update.message.message_id
+            });
+          }
+          return;
+        }
+
+        // Standard message relay back to customer
+        console.log(`Admin replied in group. Relaying message to customer User ID: ${userChatId}`);
+        
+        // Copy the admin's reply straight to the customer's private chat
+        await axios.post(`https://api.telegram.org/bot${token}/copyMessage`, {
+          chat_id: userChatId,
+          from_chat_id: update.message.chat.id,
+          message_id: update.message.message_id
+        });
+
+        // Update the active session details (last activity and reply message ID)
+        await TelegramSupportSession.updateOne(
+          { user_telegram_id: userChatId },
+          { last_admin_message_id: update.message.message_id, last_activity: new Date() }
+        );
+
+        // Map the admin's reply message ID to the user ID to maintain conversation chain
+        try {
+          await TelegramTicketMapping.create({
+            admin_message_id: update.message.message_id,
+            user_telegram_id: userChatId
+          });
+        } catch (e) {
+          // ignore duplicate key errors
+        }
+
+        // Send confirmation back to group
+        const replyConfirm = await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, {
+          chat_id: update.message.chat.id,
+          text: `✅ Reply sent to user.`,
+          reply_to_message_id: update.message.message_id
+        });
+
+        // Map the confirmation message ID to the user ID as well
+        if (replyConfirm.data && replyConfirm.data.result) {
+          try {
+            await TelegramTicketMapping.create({
+              admin_message_id: replyConfirm.data.result.message_id,
+              user_telegram_id: userChatId
+            });
+          } catch (e) {
+            // ignore duplicate key errors
+          }
+        }
+      }
+      return;
+    }
+  } catch (err) {
+    console.error('Telegram support bot handling error:', err.response ? err.response.data : err.message);
+  }
+}
+
+// Support ticketing webhook endpoint
+app.post('/api/v1/telegram-webhook', async (req, res) => {
+  try {
+    await handleTelegramUpdate(req.body);
+  } catch (err) {
+    console.error('Webhook endpoint execution error:', err.message);
+  }
+  res.sendStatus(200);
+});
+
+// Local long-polling fallback loop (used when running locally instead of webhooks)
+let pollingOffset = 0;
+let isPollingActive = false;
+
+async function startTelegramPolling(token) {
+  if (isPollingActive) return;
+  isPollingActive = true;
+
+  try {
+    // Force delete webhook on startup so Telegram allows polling updates
+    await axios.post(`https://api.telegram.org/bot${token}/deleteWebhook`);
+    console.log('Telegram webhook cleared successfully. Commencing local long-polling updates loop...');
+  } catch (err) {
+    console.warn('Failed to delete Telegram webhook on boot:', err.message);
+  }
+
+  // Polling loop
+  (async () => {
+    while (isPollingActive) {
+      try {
+        const response = await axios.get(`https://api.telegram.org/bot${token}/getUpdates`, {
+          params: {
+            offset: pollingOffset,
+            timeout: 30
+          },
+          timeout: 35000 // slightly longer than polling timeout
+        });
+
+        const updates = response.data.result || [];
+        for (const update of updates) {
+          pollingOffset = update.update_id + 1;
+          await handleTelegramUpdate(update);
+        }
+      } catch (err) {
+        if (err.code !== 'ECONNABORTED' && err.message !== 'timeout of 35000ms exceeded') {
+          console.error('Telegram polling loop error:', err.message);
+          // Wait 5 seconds before retrying to prevent connection loop-spamming
+          await new Promise(resolve => setTimeout(resolve, 5000));
+        }
+      }
+    }
+  })();
+}
+
+// Manual trigger endpoints (for Vercel Cron utility triggers)
+app.get('/api/v1/cron/balance-check', async (req, res) => {
+  try {
+    await balanceNotifier.checkLowBalanceAlert();
+    res.json({ success: true, message: 'Low balance check completed.' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/v1/cron/balance-report', async (req, res) => {
+  try {
+    await balanceNotifier.sendPeriodicBalanceUpdate();
+    res.json({ success: true, message: 'Balance status report sent.' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+// Check and automatically close support sessions that have been inactive for more than 30 minutes
+async function checkSessionTimeouts() {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) return;
+
+  const adminGroupChatId = process.env.TELEGRAM_ADMIN_CHAT_ID
+    ? Number(process.env.TELEGRAM_ADMIN_CHAT_ID.replace(/^--/, '-'))
+    : null;
+
+  try {
+    const timeoutLimit = new Date(Date.now() - 30 * 60 * 1000); // 30 minutes ago
+    const inactiveSessions = await TelegramSupportSession.find({ last_activity: { $lt: timeoutLimit } });
+
+    for (const session of inactiveSessions) {
+      const userChatId = session.user_telegram_id;
+      console.log(`Auto-closing inactive support session for User ID: ${userChatId}`);
+
+      try {
+        // 1. Notify the customer
+        const timeoutMsg = "⚠️ *Support Session Timeout*\n\nYour support session has timed out due to 30 minutes of inactivity. If you still need help, simply send a new message to start a new ticket. Thank you!";
+        await sendTelegramMessage(userChatId, timeoutMsg);
+
+        // 2. Notify the Admin Group
+        if (adminGroupChatId) {
+          await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, {
+            chat_id: adminGroupChatId,
+            text: `🔒 *Ticket for User ID ${userChatId} closed automatically due to 30 minutes of inactivity.*`
+          });
+        }
+      } catch (err) {
+        console.error(`Timeout alert error for user ${userChatId}:`, err.message);
+      }
+
+      // 3. Clear mapping and session database records
+      await TelegramTicketMapping.deleteMany({ user_telegram_id: userChatId });
+      await TelegramSupportSession.deleteOne({ _id: session._id });
+    }
+  } catch (err) {
+    console.error('Session timeout execution failure:', err.message);
+  }
+}
+
+
 // ----------------------------------------------------
 if (require.main === module) {
   dbReady.then(() => {
@@ -1519,6 +1888,30 @@ if (require.main === module) {
       console.log(`ProxyVault backend running on http://localhost:${PORT}`);
       console.log(`Simulation Mode: ${process.env.SIMULATION_MODE}`);
       
+      const token = process.env.TELEGRAM_BOT_TOKEN;
+      const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1';
+
+      // Check for inactive support sessions every 5 minutes
+      const cron = require('node-cron');
+      cron.schedule('*/5 * * * *', checkSessionTimeouts);
+
+      if (token && !token.startsWith('tg_mock_')) {
+        if (isProduction) {
+          // Webhook setup for production serverless hosting (Vercel)
+          const clientUrl = process.env.CLIENT_URL || `https://proxyvaultng.vercel.app`;
+          axios.post(`https://api.telegram.org/bot${token}/setWebhook`, {
+            url: `${clientUrl}/api/v1/telegram-webhook`
+          }).then(whRes => {
+            console.log('Telegram Support Webhook registered in production:', whRes.data);
+          }).catch(err => {
+            console.error('Failed to set Telegram Support Webhook:', err.message);
+          });
+        } else {
+          // Fallback to local long polling for local testing without ngrok
+          startTelegramPolling(token);
+        }
+      }
+
       // Prime proxy catalog cache in the background 3 seconds after startup
       setTimeout(async () => {
         const apiKey = process.env.CYBERYOZH_API_KEY;
