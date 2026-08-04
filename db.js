@@ -40,6 +40,7 @@ const UserSchema = new mongoose.Schema({
   email: { type: String, unique: true, required: true },
   password_hash: { type: String, required: true },
   balance: { type: Number, default: 0 },
+  lowBalanceAlertSent: { type: Boolean, default: false },
   created_at: { type: Date, default: Date.now }
 });
 

@@ -11,6 +11,7 @@ const { User, Transaction, ProxyLease, SmsActivation, TelegramTicketMapping, Tel
 const proxyService = require('./services/proxyService');
 const smsService = require('./services/smsService');
 const balanceNotifier = require('./services/balanceNotifier');
+const emailService = require('./services/emailService');
 
 const SMS_PRICES_KOBO = {
   telegram: 120000, // ₦1,200
@@ -187,6 +188,12 @@ app.post('/api/auth/register', async (req, res) => {
     });
 
     res.saveSession(user._id.toString(), user.email);
+
+    // Trigger Resend welcome email asynchronously
+    const username = user.email.split('@')[0];
+    emailService.sendWelcomeEmail(user.email, username).catch(err => {
+      console.error(`Failed to send welcome email to ${user.email}:`, err.message);
+    });
 
     res.status(201).json({ message: 'Registration successful', userId: user._id.toString() });
   } catch (error) {
@@ -447,7 +454,26 @@ async function processDeposit(reference, amountKobo) {
   }
 
   // Atomically increment user balance using the base amount from transaction record (excluding gateway fees)
-  await User.findByIdAndUpdate(tx.user_id, { $inc: { balance: tx.amount } });
+  const updatedUser = await User.findByIdAndUpdate(
+    tx.user_id,
+    { $inc: { balance: tx.amount } },
+    { new: true }
+  );
+
+  if (updatedUser) {
+    const amountNgn = tx.amount / 100;
+    const username = updatedUser.email.split('@')[0];
+    
+    // Trigger Resend email receipt asynchronously
+    emailService.sendDepositReceiptEmail(updatedUser.email, username, amountNgn, reference).catch(err => {
+      console.error(`Failed to send deposit receipt email to ${updatedUser.email}:`, err.message);
+    });
+
+    // Reset low-balance warning flag if account was topped up above ₦1,000
+    if (updatedUser.balance >= 100000 && updatedUser.lowBalanceAlertSent) {
+      await User.findByIdAndUpdate(tx.user_id, { $set: { lowBalanceAlertSent: false } });
+    }
+  }
 }
 
 
@@ -1828,6 +1854,15 @@ app.get('/api/v1/cron/balance-check', async (req, res) => {
   }
 });
 
+app.get('/api/v1/cron/user-balance-check', async (req, res) => {
+  try {
+    await checkUserBalances();
+    res.json({ success: true, message: 'User wallet balance check completed.' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/v1/cron/balance-report', async (req, res) => {
   try {
     await balanceNotifier.sendPeriodicBalanceUpdate();
@@ -1880,6 +1915,30 @@ async function checkSessionTimeouts() {
   }
 }
 
+// Monitor user balances and send low-balance alert emails if they drop below ₦1,000.00 (100,000 kobo)
+async function checkUserBalances() {
+  try {
+    const lowBalanceUsers = await User.find({
+      balance: { $lt: 100000 },
+      lowBalanceAlertSent: false
+    });
+
+    for (const user of lowBalanceUsers) {
+      const balanceNgn = user.balance / 100;
+      const username = user.email.split('@')[0];
+      
+      const result = await emailService.sendLowBalanceEmail(user.email, username, balanceNgn);
+      if (result.success) {
+        user.lowBalanceAlertSent = true;
+        await user.save();
+        console.log(`Low balance email sent to user: ${user.email} (Current balance: ₦${balanceNgn.toFixed(2)})`);
+      }
+    }
+  } catch (err) {
+    console.error('Error checking user balances:', err.message);
+  }
+}
+
 
 // ----------------------------------------------------
 if (require.main === module) {
@@ -1894,6 +1953,9 @@ if (require.main === module) {
       // Check for inactive support sessions every 5 minutes
       const cron = require('node-cron');
       cron.schedule('*/5 * * * *', checkSessionTimeouts);
+
+      // Check user wallet balances for low-balance alerts every 1 hour
+      cron.schedule('0 * * * *', checkUserBalances);
 
       if (token && !token.startsWith('tg_mock_')) {
         if (isProduction) {
