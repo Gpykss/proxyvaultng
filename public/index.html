@@ -159,9 +159,10 @@
         </ul>
       </div>
       <div>
-        <h4 class="footer-title">Support</h4>
+        <h4 class="footer-title">Support & Policy</h4>
         <ul class="footer-links">
           <li><a href="mailto:support@proxyvault.ng" class="footer-link">Contact Support</a></li>
+          <li><a href="#" id="tos-link" class="footer-link">Terms of Service</a></li>
         </ul>
       </div>
     </div>
@@ -169,6 +170,31 @@
       &copy; 2026 ProxyVault. All rights reserved.
     </div>
   </footer>
+
+  <!-- Terms of Service Modal Overlay (hidden by default) -->
+  <div class="modal-overlay" id="tos-modal">
+    <div class="auth-card" style="max-width: 600px; max-height: 80vh; overflow-y: auto;">
+      <button class="modal-close" id="tos-modal-close" style="position: absolute; top: 1.25rem; right: 1.25rem;">&times;</button>
+      <h2 style="font-weight: 700; margin-bottom: 1rem; color: #fff;">Terms of Service</h2>
+      <div style="font-size: 0.85rem; line-height: 1.6; color: var(--text-secondary); text-align: left;">
+        <p style="margin-bottom: 1rem;">Welcome to ProxyVault. By using our services, you agree to comply with and be bound by the following terms and conditions.</p>
+        
+        <h3 style="font-weight: 600; color: #fff; margin-top: 1.25rem; margin-bottom: 0.5rem;">1. Service Usage</h3>
+        <p style="margin-bottom: 1rem;">Our static residential SOCKS5 proxies and virtual global phone numbers are provided for legitimate professionals. Any abuse or illegal activities will result in immediate termination of the account without refund.</p>
+        
+        <h3 style="font-weight: 600; color: #fff; margin-top: 1.25rem; margin-bottom: 0.5rem;">2. Wallet & Deposit Policy</h3>
+        <div style="background-color: rgba(245, 158, 11, 0.1); border-left: 4px solid #f59e0b; padding: 0.75rem; margin-top: 0.5rem; margin-bottom: 1rem; border-radius: 4px;">
+          <p style="font-size: 0.8rem; color: #d97706; font-weight: bold; margin: 0 0 0.25rem 0;">🔒 Wallet Policy Notice</p>
+          <p style="font-size: 0.75rem; color: var(--text-muted); margin: 0; line-height: 1.4;">
+            <strong>Non-Refundable Balance:</strong> Funds deposited into ProxyVault are strictly for service usage within the platform. <strong>Direct withdrawals or cash-outs to bank accounts/crypto wallets are not supported.</strong>
+          </p>
+        </div>
+        
+        <h3 style="font-weight: 600; color: #fff; margin-top: 1.25rem; margin-bottom: 0.5rem;">3. Disputed Orders & Refunds</h3>
+        <p style="margin-bottom: 1rem;">If you experience any issues with SMS verification delivery or proxy connectivity, please contact support with details including Order ID and screenshots/recordings within the specified lease window.</p>
+      </div>
+    </div>
+  </div>
 
   <!-- Authentication Modal Overlay (hidden by default) -->
   <div class="modal-overlay" id="auth-modal">
@@ -365,6 +391,32 @@
         authModal.classList.remove('active');
       }
     });
+
+    // TOS Modal elements
+    const tosModal = document.getElementById('tos-modal');
+    const tosLink = document.getElementById('tos-link');
+    const tosModalClose = document.getElementById('tos-modal-close');
+
+    if (tosLink && tosModal) {
+      tosLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        tosModal.classList.add('active');
+      });
+    }
+
+    if (tosModalClose) {
+      tosModalClose.addEventListener('click', () => {
+        tosModal.classList.remove('active');
+      });
+    }
+
+    if (tosModal) {
+      tosModal.addEventListener('click', (e) => {
+        if (e.target === tosModal) {
+          tosModal.classList.remove('active');
+        }
+      });
+    }
   </script>
 
   <!-- Floating Telegram Support Button -->

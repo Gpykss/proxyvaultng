@@ -22,6 +22,7 @@
         <a href="#proxy-card" class="nav-item">🌐 Static IPs</a>
         <a href="#sms-card" class="nav-item">📱 SMS OTPs</a>
         <a href="#guide-card" class="nav-item">📘 How to Use Guide</a>
+        <a href="#" id="dashboard-tos-link" class="nav-item">📄 Terms of Service</a>
         <a href="https://t.me/ProxyvaultsupportBot" target="_blank" class="nav-item" style="margin-top: 1.5rem; border-top: 1px dashed rgba(27, 29, 42, 0.1); padding-top: 1rem; font-weight: 700; color: #1b1d2a !important;">💬 Live Support (TG)</a>
       </nav>
       <div class="sidebar-footer">
@@ -232,9 +233,44 @@
       </div>
       <button class="btn btn-primary" id="deposit-submit-btn" style="width: 100%;">Proceed to Payment</button>
       
+      <!-- Wallet Policy Notice Banner -->
+      <div style="background-color: rgba(245, 158, 11, 0.1); border-left: 4px solid #f59e0b; padding: 0.75rem; margin-top: 1rem; border-radius: 4px; text-align: left;">
+        <p style="font-size: 0.75rem; color: #d97706; font-weight: bold; margin: 0 0 0.25rem 0;">🔒 Wallet Policy Notice</p>
+        <p style="font-size: 0.7rem; color: var(--text-muted); margin: 0; line-height: 1.4;">
+          <strong>Non-Refundable Balance:</strong> Funds deposited into ProxyVault are strictly for service usage within the platform. <strong>Direct withdrawals or cash-outs to bank accounts/crypto wallets are not supported.</strong>
+        </p>
+      </div>
+
       <p style="font-size: 0.75rem; color: var(--text-muted); text-align: center; margin-top: 1rem;">
         Pay securely with Debit Card, USSD or Bank Transfer via Korapay.
       </p>
+    </div>
+  </div>
+
+  <!-- Terms of Service Modal Overlay (hidden by default) -->
+  <div class="modal-overlay" id="dashboard-tos-modal">
+    <div class="modal-content" style="max-width: 600px; max-height: 80vh; overflow-y: auto;">
+      <div class="modal-header">
+        <h3 style="font-weight: 700;">Terms of Service</h3>
+        <button class="modal-close" id="close-tos-btn">&times;</button>
+      </div>
+      <div style="font-size: 0.85rem; line-height: 1.6; color: var(--text-secondary); text-align: left;">
+        <p style="margin-bottom: 1rem;">Welcome to ProxyVault. By using our services, you agree to comply with and be bound by the following terms and conditions.</p>
+        
+        <h3 style="font-weight: 600; color: var(--text-primary); margin-top: 1.25rem; margin-bottom: 0.5rem;">1. Service Usage</h3>
+        <p style="margin-bottom: 1rem;">Our static residential SOCKS5 proxies and virtual global phone numbers are provided for legitimate professionals. Any abuse or illegal activities will result in immediate termination of the account without refund.</p>
+        
+        <h3 style="font-weight: 600; color: var(--text-primary); margin-top: 1.25rem; margin-bottom: 0.5rem;">2. Wallet & Deposit Policy</h3>
+        <div style="background-color: rgba(245, 158, 11, 0.1); border-left: 4px solid #f59e0b; padding: 0.75rem; margin-top: 0.5rem; margin-bottom: 1rem; border-radius: 4px;">
+          <p style="font-size: 0.8rem; color: #d97706; font-weight: bold; margin: 0 0 0.25rem 0;">🔒 Wallet Policy Notice</p>
+          <p style="font-size: 0.75rem; color: var(--text-muted); margin: 0; line-height: 1.4;">
+            <strong>Non-Refundable Balance:</strong> Funds deposited into ProxyVault are strictly for service usage within the platform. <strong>Direct withdrawals or cash-outs to bank accounts/crypto wallets are not supported.</strong>
+          </p>
+        </div>
+        
+        <h3 style="font-weight: 600; color: var(--text-primary); margin-top: 1.25rem; margin-bottom: 0.5rem;">3. Disputed Orders & Refunds</h3>
+        <p style="margin-bottom: 1rem;">If you experience any issues with SMS verification delivery or proxy connectivity, please contact support with details including Order ID and screenshots/recordings within the specified lease window.</p>
+      </div>
     </div>
   </div>
 

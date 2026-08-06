@@ -598,6 +598,32 @@ function setupEventListeners() {
     });
   }
 
+  // Dashboard TOS Modal Handlers
+  const tosModal = document.getElementById('dashboard-tos-modal');
+  const tosLink = document.getElementById('dashboard-tos-link');
+  const closeTosBtn = document.getElementById('close-tos-btn');
+
+  if (tosLink && tosModal) {
+    tosLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      tosModal.classList.add('active');
+    });
+  }
+
+  if (closeTosBtn && tosModal) {
+    closeTosBtn.addEventListener('click', () => {
+      tosModal.classList.remove('active');
+    });
+  }
+
+  if (tosModal) {
+    tosModal.addEventListener('click', (e) => {
+      if (e.target === tosModal) {
+        tosModal.classList.remove('active');
+      }
+    });
+  }
+
   // Top up balance handler
   document.getElementById('deposit-submit-btn').addEventListener('click', handleDepositInit);
 

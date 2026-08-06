@@ -1589,6 +1589,9 @@ async function handleTelegramUpdate(update) {
             [
               { text: '💳 Deposit & Billing Info', callback_data: 'guide_billing' },
               { text: '💬 Speak to Human', callback_data: 'speak_human' }
+            ],
+            [
+              { text: '⚠️ Dispute & Refund Guidelines', callback_data: 'guide_refund' }
             ]
           ]
         });
@@ -1696,6 +1699,8 @@ async function handleTelegramUpdate(update) {
         await sendTelegramMessage(userId, `💳 *Deposit & Billing Info*\n\n1. Click 'Top Up Wallet' to fund Naira via bank transfer, card, or USSD securely.\n2. Minimum deposit is ₦500.\n3. Credits are automatic and instant.`);
       } else if (data === 'speak_human') {
         await sendTelegramMessage(userId, `💬 Please type your question or describe your issue here. Our support team will reply directly in this chat!`);
+      } else if (data === 'guide_refund') {
+        await sendTelegramMessage(userId, `⚠️ *Support & Refund Guidelines*\n\n*Submitting a Disputed Order*\nIf you experienced an issue with an SMS order and are requesting a refund, please reply with:\n• *Order ID / Order Number*\n• *Target Phone Number*\n• *OTP / Service Code* (if received or failed)\n• *Screenshots & Screen Recording* showing the full issue from request to code timeout.\n\n*💡 High-Success Rate Recommendations*\n• *Always select High-Signal Providers* for maximum delivery reliability.\n• *Telegram Activation Tip:* We strongly recommend using *Telegram X* for initiating number verifications. If Telegram X is unavailable, switch to standard Telegram.`);
       }
       return;
     }
