@@ -1318,9 +1318,19 @@ async function loadTransactions() {
 
       switch (tx.type) {
         case 'deposit':
-          typeText = 'Wallet Fund';
-          styleColor = 'var(--emerald-text)';
-          prefix = '+';
+          if (tx.status === 'failed') {
+            typeText = 'Wallet Fund (Failed)';
+            styleColor = 'var(--red)';
+            prefix = '';
+          } else if (tx.status === 'pending') {
+            typeText = 'Wallet Fund (Pending)';
+            styleColor = 'var(--text-secondary)';
+            prefix = '';
+          } else {
+            typeText = 'Wallet Fund';
+            styleColor = 'var(--emerald-text)';
+            prefix = '+';
+          }
           break;
         case 'proxy_rent':
           typeText = 'Proxy Lease (30d)';

@@ -429,6 +429,16 @@ app.post('/api/v1/payments/korapay-webhook', async (req, res) => {
       console.error('Webhook processing error:', err.message);
       return res.status(500).send('Internal transaction failure');
     }
+  } else if (payload.event === 'charge.failed') {
+    const reference = payload.data.reference;
+    try {
+      await Transaction.updateOne({ reference, status: 'pending' }, { $set: { status: 'failed' } });
+      console.log(`Webhook: Marked transaction ${reference} as failed.`);
+      return res.status(200).send('Webhook processed successfully');
+    } catch (err) {
+      console.error('Webhook processing error (failed charge):', err.message);
+      return res.status(500).send('Internal transaction failure');
+    }
   }
 
   res.status(200).send('Unhandled event type');
