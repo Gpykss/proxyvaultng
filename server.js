@@ -1955,6 +1955,20 @@ async function checkUserBalances() {
 }
 
 
+// Automatically set Telegram Webhook when running in production serverless environments (Vercel)
+const token = process.env.TELEGRAM_BOT_TOKEN;
+const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1';
+if (isProduction && token && !token.startsWith('tg_mock_')) {
+  const clientUrl = process.env.CLIENT_URL || `https://proxyvaultng.vercel.app`;
+  axios.post(`https://api.telegram.org/bot${token}/setWebhook`, {
+    url: `${clientUrl}/api/v1/telegram-webhook`
+  }).then(whRes => {
+    console.log('Telegram Support Webhook registered in production:', whRes.data);
+  }).catch(err => {
+    console.error('Failed to set Telegram Support Webhook:', err.message);
+  });
+}
+
 // ----------------------------------------------------
 if (require.main === module) {
   dbReady.then(() => {
@@ -1962,8 +1976,7 @@ if (require.main === module) {
       console.log(`ProxyVault backend running on http://localhost:${PORT}`);
       console.log(`Simulation Mode: ${process.env.SIMULATION_MODE}`);
       
-      const token = process.env.TELEGRAM_BOT_TOKEN;
-      const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1';
+      const startupToken = process.env.TELEGRAM_BOT_TOKEN;
 
       // Check for inactive support sessions every 5 minutes
       const cron = require('node-cron');
@@ -1972,20 +1985,10 @@ if (require.main === module) {
       // Check user wallet balances for low-balance alerts every 1 hour
       cron.schedule('0 * * * *', checkUserBalances);
 
-      if (token && !token.startsWith('tg_mock_')) {
-        if (isProduction) {
-          // Webhook setup for production serverless hosting (Vercel)
-          const clientUrl = process.env.CLIENT_URL || `https://proxyvaultng.vercel.app`;
-          axios.post(`https://api.telegram.org/bot${token}/setWebhook`, {
-            url: `${clientUrl}/api/v1/telegram-webhook`
-          }).then(whRes => {
-            console.log('Telegram Support Webhook registered in production:', whRes.data);
-          }).catch(err => {
-            console.error('Failed to set Telegram Support Webhook:', err.message);
-          });
-        } else {
+      if (startupToken && !startupToken.startsWith('tg_mock_')) {
+        if (!isProduction) {
           // Fallback to local long polling for local testing without ngrok
-          startTelegramPolling(token);
+          startTelegramPolling(startupToken);
         }
       }
 
