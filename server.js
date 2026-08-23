@@ -607,8 +607,7 @@ async function fetchCompleteProxyCatalog(apiKey) {
     const regionNames = new Intl.DisplayNames(['en'], { type: 'region' });
     const countriesMap = {};
 
-    const liveRate = await getUsdNgnExchangeRate();
-    const adjustedRate = liveRate + 40;
+    const adjustedRate = await getUsdNgnExchangeRate();
 
     staticRes.forEach(item => {
       let code = (item.location_country_code || '').toUpperCase();
@@ -812,8 +811,7 @@ app.get('/api/v1/sms/catalog', requireAuth, async (req, res) => {
       tiktok: 'TikTok'
     };
 
-    const liveRate = await getUsdNgnExchangeRate();
-    const adjustedRate = liveRate + 40;
+    const adjustedRate = await getUsdNgnExchangeRate();
 
     const availableKeys = Object.keys(productsObj);
     const services = availableKeys.map(key => {
@@ -856,25 +854,36 @@ app.get('/api/v1/sms/catalog', requireAuth, async (req, res) => {
   }
 });
 
-let cachedExchangeRate = 1600; // Safe NGN fallback
+const FX_MARKUP_NAIRA = parseFloat(process.env.FX_MARKUP_NAIRA) || 40; // Markup added to fetched rate (+40 NGN)
+let cachedBaseExchangeRate = parseFloat(process.env.USD_NGN_EXCHANGE_RATE) || 1600; // Base fallback rate
 let lastRateFetchTime = 0;
-const RATE_CACHE_DURATION_MS = 60 * 60 * 1000; // Cache exchange rate for 1 hour
+const RATE_CACHE_DURATION_MS = 30 * 60 * 1000; // Cache exchange rate for 30 minutes
 
 async function getUsdNgnExchangeRate() {
-  if (Date.now() - lastRateFetchTime < RATE_CACHE_DURATION_MS) {
-    return cachedExchangeRate;
+  // If manual black market / exchange rate is set in .env, use it directly with +40 markup
+  if (process.env.USD_NGN_EXCHANGE_RATE) {
+    const customBase = parseFloat(process.env.USD_NGN_EXCHANGE_RATE);
+    const effective = customBase + FX_MARKUP_NAIRA;
+    return effective;
   }
+
+  if (Date.now() - lastRateFetchTime < RATE_CACHE_DURATION_MS && lastRateFetchTime > 0) {
+    return cachedBaseExchangeRate + FX_MARKUP_NAIRA;
+  }
+
   try {
     const res = await axios.get('https://open.er-api.com/v6/latest/USD', { timeout: 4000 });
     if (res.data && res.data.rates && res.data.rates.NGN) {
-      cachedExchangeRate = res.data.rates.NGN;
+      cachedBaseExchangeRate = Math.round(res.data.rates.NGN * 100) / 100;
       lastRateFetchTime = Date.now();
-      console.log(`Fetched live USD-NGN exchange rate: ${cachedExchangeRate}`);
+      const effectiveRate = cachedBaseExchangeRate + FX_MARKUP_NAIRA;
+      console.log(`[FX ENGINE] Fetched live USD-NGN rate: ₦${cachedBaseExchangeRate} | Effective Rate (+₦${FX_MARKUP_NAIRA}): ₦${effectiveRate}`);
     }
   } catch (err) {
-    console.error('Failed to fetch live exchange rate, using fallback cached rate:', err.message);
+    console.error(`[FX ENGINE] Failed to fetch live exchange rate, using fallback rate: ₦${cachedBaseExchangeRate}`, err.message);
   }
-  return cachedExchangeRate;
+
+  return cachedBaseExchangeRate + FX_MARKUP_NAIRA;
 }
 
 // Get available operators for country and platform with success ratings and dynamic pricing
@@ -937,8 +946,7 @@ app.get('/api/v1/sms/operators', requireAuth, async (req, res) => {
     const countryData = dataObj[targetCountry.toLowerCase()] || {};
     const serviceData = countryData[targetService.toLowerCase()] || {};
     
-    const liveRate = await getUsdNgnExchangeRate();
-    const adjustedRate = liveRate + 40;
+    const adjustedRate = await getUsdNgnExchangeRate();
 
     const operators = Object.keys(serviceData).map(opName => {
       const opInfo = serviceData[opName];
@@ -1063,8 +1071,7 @@ async function getProxyCostKobo(country, isp) {
 
     if (matchedItem && matchedItem.proxy_products && matchedItem.proxy_products[0]) {
       const wholesaleUSD = parseFloat(matchedItem.proxy_products[0].price_usd) || 5.0;
-      const liveRate = await getUsdNgnExchangeRate();
-      const adjustedRate = liveRate + 40;
+      const adjustedRate = await getUsdNgnExchangeRate();
       const priceNgn = Math.ceil((wholesaleUSD * 2) * adjustedRate);
       return priceNgn * 100; // NGN to Kobo
     }
@@ -1243,8 +1250,7 @@ async function getSmsCostKobo(service, country, operator) {
     }
 
     const wholesaleUSD = selectedOpInfo.cost || 0.1;
-    const liveRate = await getUsdNgnExchangeRate();
-    const adjustedRate = liveRate + 40;
+    const adjustedRate = await getUsdNgnExchangeRate();
     const retailNgn = Math.ceil((wholesaleUSD * 2) * adjustedRate);
     return retailNgn * 100; // NGN to Kobo
   } catch (err) {

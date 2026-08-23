@@ -49,10 +49,17 @@
   --radius-xl: 1rem;
 }
 
-* {
+*, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+}
+
+html {
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100%;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
@@ -60,11 +67,18 @@ body {
   color: var(--text-primary);
   font-family: var(--font-main);
   min-height: 100vh;
+  width: 100%;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
   overflow-x: hidden;
   position: relative;
   line-height: 1.5;
+}
+
+img, svg, video, canvas, audio, iframe, embed, object {
+  max-width: 100%;
+  height: auto;
 }
 
 /* ----------------------------------------------------
@@ -1608,6 +1622,8 @@ body {
   padding: 1.25rem 2rem;
   background: #0d1726;
   border-bottom: 1px solid var(--border-color);
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .logo {
@@ -1617,6 +1633,7 @@ body {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  flex-shrink: 0;
 }
 
 .nav-links {
@@ -1647,21 +1664,33 @@ body {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+.nav-btn {
+  width: auto;
+  padding: 0.6rem 1.25rem;
+  font-size: 0.875rem;
+  white-space: nowrap;
 }
 
 .hero-section {
   text-align: center;
   padding: 4rem 1.5rem 3rem 1.5rem;
   max-width: 900px;
+  width: 100%;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .hero-badge {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
   background: rgba(56, 189, 248, 0.1);
   border: 1px solid rgba(56, 189, 248, 0.3);
@@ -1672,29 +1701,31 @@ body {
   font-weight: 700;
   margin-bottom: 1.5rem;
   letter-spacing: 0.05em;
+  max-width: 100%;
+  box-sizing: border-box;
+  text-align: center;
 }
 
 .hero-title {
-  font-size: 2.25rem;
+  font-size: clamp(1.75rem, 5.5vw, 3rem);
   font-weight: 800;
   color: #fff;
   line-height: 1.25;
   margin-bottom: 1.25rem;
   letter-spacing: -0.02em;
-}
-
-@media (min-width: 768px) {
-  .hero-title {
-    font-size: 3rem;
-  }
+  word-break: break-word;
+  overflow-wrap: break-word;
+  max-width: 100%;
 }
 
 .hero-subtitle {
-  font-size: 1.05rem;
+  font-size: clamp(0.9rem, 2.5vw, 1.05rem);
   color: var(--text-secondary);
   line-height: 1.6;
   max-width: 680px;
   margin-bottom: 2rem;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .hero-actions {
@@ -1703,17 +1734,30 @@ body {
   gap: 1rem;
   justify-content: center;
   margin-bottom: 3rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.hero-btn {
+  width: auto;
+  padding: 0.875rem 2rem;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .terminal-mockup {
   width: 100%;
   max-width: 680px;
+  min-width: 0;
   background: #0d1726;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   overflow: hidden;
   text-align: left;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+  box-sizing: border-box;
 }
 
 .terminal-header {
@@ -1723,12 +1767,14 @@ body {
   align-items: center;
   gap: 0.5rem;
   border-bottom: 1px solid var(--border-subtle);
+  min-width: 0;
 }
 
 .terminal-dot {
   width: 10px;
   height: 10px;
   border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .terminal-dot.red { background: #ef4444; }
@@ -1740,6 +1786,9 @@ body {
   font-family: var(--font-mono);
   color: var(--text-muted);
   margin-left: 0.5rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .terminal-body {
@@ -1747,10 +1796,17 @@ body {
   font-family: var(--font-mono);
   font-size: 0.825rem;
   line-height: 1.6;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .terminal-line {
   margin-bottom: 0.35rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .terminal-prompt {
@@ -1760,6 +1816,8 @@ body {
 
 .terminal-output {
   color: var(--text-secondary);
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 /* Metrics bar */
@@ -1768,14 +1826,18 @@ body {
   border-top: 1px solid var(--border-color);
   border-bottom: 1px solid var(--border-color);
   padding: 2.5rem 1.5rem;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .metrics-grid {
   max-width: 1100px;
+  width: 100%;
   margin: 0 auto;
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 1.5rem;
+  box-sizing: border-box;
 }
 
 @media (min-width: 768px) {
@@ -1789,6 +1851,7 @@ body {
   flex-direction: column;
   align-items: center;
   text-align: center;
+  min-width: 0;
 }
 
 .metric-value {
@@ -1796,6 +1859,8 @@ body {
   font-weight: 800;
   color: #fff;
   font-family: var(--font-mono);
+  word-break: break-word;
+  max-width: 100%;
 }
 
 .metric-label {
@@ -1803,38 +1868,46 @@ body {
   color: var(--text-secondary);
   margin-top: 0.25rem;
   font-weight: 500;
+  word-break: break-word;
 }
 
 /* Features */
 .features-section, .workflow-section, .cta-section {
   padding: 4rem 1.5rem;
   max-width: 1100px;
+  width: 100%;
   margin: 0 auto;
+  box-sizing: border-box;
 }
 
 .section-header {
   text-align: center;
   margin-bottom: 3rem;
+  width: 100%;
 }
 
 .section-title {
-  font-size: 1.85rem;
+  font-size: clamp(1.4rem, 4vw, 1.85rem);
   font-weight: 800;
   color: #fff;
   margin-bottom: 0.75rem;
+  word-break: break-word;
 }
 
 .section-subtitle {
-  font-size: 0.95rem;
+  font-size: clamp(0.85rem, 2.5vw, 0.95rem);
   color: var(--text-secondary);
   max-width: 600px;
   margin: 0 auto;
+  word-break: break-word;
 }
 
 .features-grid {
   display: grid;
   grid-template-columns: 1fr;
   gap: 1.5rem;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 @media (min-width: 768px) {
@@ -1849,6 +1922,8 @@ body {
   border-radius: var(--radius-lg);
   padding: 1.75rem;
   transition: var(--transition-smooth);
+  box-sizing: border-box;
+  min-width: 0;
 }
 
 .feature-card:hover {
@@ -1879,6 +1954,8 @@ body {
   display: grid;
   grid-template-columns: 1fr;
   gap: 1.5rem;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 @media (min-width: 768px) {
@@ -1893,6 +1970,8 @@ body {
   border-radius: var(--radius-lg);
   padding: 1.75rem;
   position: relative;
+  box-sizing: border-box;
+  min-width: 0;
 }
 
 .step-number {
@@ -1928,6 +2007,13 @@ body {
   border-radius: var(--radius-xl);
   padding: 3rem 2rem;
   text-align: center;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.cta-btn {
+  width: auto;
+  padding: 0.875rem 2.5rem;
 }
 
 /* Footer */
@@ -1936,14 +2022,18 @@ body {
   border-top: 1px solid var(--border-color);
   padding: 3rem 1.5rem 1.5rem 1.5rem;
   margin-top: auto;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .footer-grid {
   max-width: 1100px;
+  width: 100%;
   margin: 0 auto 2rem auto;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 2rem;
+  box-sizing: border-box;
 }
 
 .footer-brand-tagline {
@@ -1951,6 +2041,7 @@ body {
   color: var(--text-muted);
   margin-top: 0.5rem;
   line-height: 1.5;
+  word-break: break-word;
 }
 
 .footer-title {
@@ -1998,6 +2089,7 @@ body {
   padding: 2rem;
   position: relative;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+  box-sizing: border-box;
 }
 
 .auth-header {
@@ -2040,6 +2132,7 @@ body {
   outline: none;
   font-family: var(--font-main);
   transition: var(--transition-smooth);
+  box-sizing: border-box;
 }
 
 .input-control:focus {
@@ -2070,6 +2163,157 @@ body {
 
 .modal-close:hover {
   color: #fff;
+}
+
+/* ----------------------------------------------------
+   RESPONSIVE MEDIA QUERIES FOR LANDING PAGE (INDEX.HTML)
+---------------------------------------------------- */
+@media (max-width: 768px) {
+  .navbar {
+    padding: 1rem 1.25rem;
+  }
+  .hero-section {
+    padding: 3rem 1.25rem 2rem 1.25rem;
+  }
+  .features-section, .workflow-section, .cta-section {
+    padding: 3rem 1.25rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .navbar {
+    padding: 0.85rem 1rem;
+  }
+  .logo {
+    font-size: 1.15rem;
+  }
+  .nav-actions {
+    gap: 0.4rem;
+  }
+  .nav-btn {
+    padding: 0.45rem 0.75rem !important;
+    font-size: 0.8rem !important;
+  }
+  
+  .hero-section {
+    padding: 2.5rem 1rem 2rem 1rem;
+  }
+  .hero-badge {
+    font-size: 0.68rem;
+    padding: 0.3rem 0.65rem;
+    margin-bottom: 1.1rem;
+    white-space: normal;
+    word-break: break-word;
+  }
+  .hero-title {
+    font-size: 1.7rem;
+    margin-bottom: 1rem;
+  }
+  .hero-subtitle {
+    font-size: 0.88rem;
+    margin-bottom: 1.5rem;
+  }
+  .hero-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+    max-width: 320px;
+    margin-bottom: 2rem;
+  }
+  .hero-btn {
+    width: 100% !important;
+    padding: 0.75rem 1.5rem !important;
+    text-align: center;
+    justify-content: center;
+  }
+  
+  .terminal-mockup {
+    border-radius: var(--radius-md);
+  }
+  .terminal-header {
+    padding: 0.5rem 0.75rem;
+  }
+  .terminal-body {
+    padding: 0.85rem 0.75rem;
+    font-size: 0.75rem;
+  }
+  
+  .metrics-bar {
+    padding: 1.75rem 1rem;
+  }
+  .metrics-grid {
+    gap: 1.25rem 0.75rem;
+  }
+  .metric-value {
+    font-size: 1.4rem;
+  }
+  .metric-label {
+    font-size: 0.75rem;
+  }
+  
+  .features-section, .workflow-section, .cta-section {
+    padding: 2.5rem 1rem;
+  }
+  .section-header {
+    margin-bottom: 2rem;
+  }
+  .feature-card, .workflow-step {
+    padding: 1.25rem 1rem;
+  }
+  .cta-container {
+    padding: 2rem 1.25rem;
+    border-radius: var(--radius-lg);
+  }
+  .cta-btn {
+    width: 100% !important;
+    max-width: 300px;
+    padding: 0.8rem 1.5rem !important;
+  }
+  
+  .footer {
+    padding: 2rem 1rem 1.5rem 1rem;
+  }
+  .footer-grid {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+  
+  .floating-support-btn {
+    bottom: 1rem;
+    right: 1rem;
+    padding: 0.55rem 0.95rem;
+    font-size: 0.8rem;
+    max-width: calc(100vw - 2rem);
+  }
+  
+  .auth-card {
+    padding: 1.5rem 1.25rem;
+    max-width: 100%;
+    margin: 0 auto;
+  }
+  .modal-overlay {
+    padding: 1rem 0.75rem;
+  }
+}
+
+@media (max-width: 380px) {
+  .navbar {
+    padding: 0.75rem 0.65rem;
+  }
+  .logo {
+    font-size: 1rem;
+  }
+  .nav-actions {
+    gap: 0.3rem;
+  }
+  .nav-btn {
+    padding: 0.4rem 0.55rem !important;
+    font-size: 0.75rem !important;
+  }
+  .metrics-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
 }
 
 /* ----------------------------------------------------
