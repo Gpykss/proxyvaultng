@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-const mongoUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/proxyvault';
+let mongoUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/proxyvault';
 
 let cached = global.mongoose;
 
@@ -8,19 +8,43 @@ if (!cached) {
   cached = global.mongoose = { conn: null, promise: null };
 }
 
+let mongodInstance = null;
+
 async function connectDB() {
   if (cached.conn) {
     return cached.conn;
   }
 
   if (!cached.promise) {
-    const opts = {
-      bufferCommands: false
-    };
-    cached.promise = mongoose.connect(mongoUri, opts).then((m) => {
-      console.log('MongoDB initialized successfully.');
-      return m;
-    });
+    cached.promise = (async () => {
+      const opts = {
+        bufferCommands: false,
+        serverSelectionTimeoutMS: 3000
+      };
+
+      try {
+        const m = await mongoose.connect(mongoUri, opts);
+        console.log('MongoDB initialized successfully.');
+        return m;
+      } catch (err) {
+        // Fallback for local preview if local MongoDB daemon is not running
+        if (!process.env.VERCEL && process.env.NODE_ENV !== 'production') {
+          try {
+            console.log('Local MongoDB not detected. Starting in-memory MongoDB for local preview...');
+            const { MongoMemoryServer } = require('mongodb-memory-server');
+            mongodInstance = await MongoMemoryServer.create();
+            const memoryUri = mongodInstance.getUri();
+            const m = await mongoose.connect(memoryUri, { bufferCommands: false });
+            console.log('In-memory MongoDB initialized successfully for local preview.');
+            return m;
+          } catch (memErr) {
+            console.error('Failed to initialize in-memory MongoDB:', memErr.message);
+            throw err;
+          }
+        }
+        throw err;
+      }
+    })();
   }
 
   try {

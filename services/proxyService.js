@@ -26,14 +26,15 @@ async function provisionProxy(country, selectedIsp = '') {
 
     const items = shopRes.data.results || [];
     const code = country.toUpperCase();
+    const isAnyIsp = !selectedIsp || selectedIsp.toLowerCase() === 'any';
     const matchedItem = items.find(item => 
       item.proxy_category === 'residential_static' &&
       (item.location_country_code || '').toUpperCase() === code &&
-      (item.title.toLowerCase().includes((selectedIsp || '').toLowerCase()) || (selectedIsp || '').toLowerCase().includes(item.title.toLowerCase()))
+      (isAnyIsp || item.title.toLowerCase().includes((selectedIsp || '').toLowerCase()) || (selectedIsp || '').toLowerCase().includes(item.title.toLowerCase()))
     );
 
     if (!matchedItem || !matchedItem.proxy_products || !matchedItem.proxy_products[0]) {
-      throw new Error(`No static residential proxy found for country ${country} and ISP ${selectedIsp}`);
+      throw new Error(`No static residential proxy found for country ${country}${selectedIsp && selectedIsp !== 'any' ? ` and ISP ${selectedIsp}` : ''}`);
     }
 
     const productUuid = matchedItem.proxy_products[0].id;

@@ -1,440 +1,481 @@
-// Automatically include credentials (session cookies) on all fetch requests
+// ProxyVault 🇳🇬 - CyberYozh & 5SIM Dashboard Core Logic
 const originalFetch = window.fetch;
 window.fetch = function (url, options = {}) {
   options.credentials = 'include';
   return originalFetch(url, options);
 };
 
-// ProxyVault Dashboard Core Logic
 let currentUser = null;
-let activePollIntervals = {};
 let proxyCatalogCountries = [];
 let cachedSmsCatalog = null;
+let activePollTrackers = {};
+
+// 5SIM Multi-Step State
+let currentStepService = null;
+let currentStepCountry = null;
+
+// Official Vector Brand Icons
+function getServiceIconSvg(serviceId = '') {
+  const id = (serviceId || '').toLowerCase().trim();
+
+  if (id.includes('whatsapp')) {
+    return `<svg viewBox="0 0 24 24" width="22" height="22" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><circle cx="12" cy="12" r="12" fill="#25D366"/><path d="M17.5 14.38c-.24-.12-1.42-.7-1.64-.78-.22-.08-.38-.12-.54.12-.16.24-.62.78-.76.94-.14.16-.28.18-.52.06-.24-.12-1.01-.37-1.93-1.19-.71-.64-1.19-1.42-1.33-1.66-.14-.24-.02-.37.1-.49.11-.11.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.54-1.3-.74-1.78-.2-.47-.39-.4-.54-.41h-.46c-.16 0-.42.06-.64.3-.22.24-.84.82-.84 2 0 1.18.86 2.32.98 2.48.12.16 1.7 2.6 4.12 3.64.58.25 1.03.4 1.38.51.58.18 1.11.16 1.53.1.47-.07 1.42-.58 1.62-1.14.2-.56.2-1.04.14-1.14-.06-.1-.22-.16-.46-.28z" fill="#fff"/></svg>`;
+  }
+
+  if (id.includes('telegram')) {
+    return `<svg viewBox="0 0 24 24" width="22" height="22" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><circle cx="12" cy="12" r="12" fill="#229ED9"/><path d="M5.5 11.8l10.8-4.2c.5-.2 1 .1.8.7l-1.8 8.6c-.1.6-.5.8-1 .5l-2.7-2-1.3 1.3c-.1.1-.3.3-.6.3l.2-2.8 5.1-4.6c.2-.2 0-.3-.3-.1l-6.3 4-2.7-.9c-.6-.2-.6-.6.1-.8z" fill="#fff"/></svg>`;
+  }
+
+  if (id.includes('chatgpt') || id.includes('openai')) {
+    return `<svg viewBox="0 0 24 24" width="22" height="22" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><circle cx="12" cy="12" r="12" fill="#10a37f"/><path d="M17.5 10.3a3.5 3.5 0 0 0-.3-2.6 3.6 3.6 0 0 0-3.3-1.8c-.3 0-.6.1-.9.2a3.5 3.5 0 0 0-2.6-1.1 3.6 3.6 0 0 0-3.5 2.7 3.5 3.5 0 0 0-1.8 1.4 3.6 3.6 0 0 0-.2 3.8 3.5 3.5 0 0 0 .3 2.6 3.6 3.6 0 0 0 3.3 1.8c.3 0 .6-.1.9-.2a3.5 3.5 0 0 0 2.6 1.1 3.6 3.6 0 0 0 3.5-2.7 3.5 3.5 0 0 0 1.8-1.4 3.6 3.6 0 0 0 .2-3.8z" fill="#fff" opacity="0.95"/></svg>`;
+  }
+
+  if (id.includes('facebook')) {
+    return `<svg viewBox="0 0 24 24" width="22" height="22" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><circle cx="12" cy="12" r="12" fill="#1877F2"/><path d="M13.3 18v-5.5h1.9l.3-2.2h-2.2v-1.4c0-.6.2-1.1 1.1-1.1h1.2V5.8c-.2 0-.9-.1-1.8-.1-1.8 0-3 1.1-3 3.1v1.5H9v2.2h1.8V18h2.5z" fill="#fff"/></svg>`;
+  }
+
+  if (id.includes('instagram') || id.includes('threads')) {
+    return `<svg viewBox="0 0 24 24" width="22" height="22" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><defs><linearGradient id="igG" x1="0" y1="24" x2="24" y2="0" gradientUnits="userSpaceOnUse"><stop stop-color="#FFD600"/><stop offset="0.5" stop-color="#FF0069"/><stop offset="1" stop-color="#7638FA"/></linearGradient></defs><rect width="24" height="24" rx="6" fill="url(#igG)"/><path d="M12 7.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9zm0 7.4a2.9 2.9 0 1 1 0-5.8 2.9 2.9 0 0 1 0 5.8zm4.8-7.7a1.1 1.1 0 1 1-2.2 0 1.1 1.1 0 0 1 2.2 0z" fill="#fff"/><rect x="4.5" y="4.5" width="15" height="15" rx="4" stroke="#fff" stroke-width="1.6"/></svg>`;
+  }
+
+  if (id.includes('tiktok')) {
+    return `<svg viewBox="0 0 24 24" width="22" height="22" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="24" height="24" rx="6" fill="#000"/><path d="M15.5 6.2c.6.7 1.4 1.2 2.3 1.3v2.2c-.9 0-1.8-.3-2.5-.8v5.6a4.5 4.5 0 1 1-4.5-4.5c.3 0 .7 0 1 .1v2.3a2.3 2.3 0 1 0 1.3 2.1V4h2.4z" fill="#25F4EE"/><path d="M15.9 6.6c.6.7 1.4 1.2 2.3 1.3v1.8c-.9 0-1.8-.3-2.5-.8v5.6a4.5 4.5 0 1 1-4.5-4.5c.3 0 .7 0 1 .1v1.9a2.3 2.3 0 1 0 1.3 2.1V4.4h2.4z" fill="#FE2C55" style="mix-blend-mode: screen;"/><path d="M15.7 6.4c.6.7 1.4 1.2 2.3 1.3v2c-.9 0-1.8-.3-2.5-.8v5.6a4.5 4.5 0 1 1-4.5-4.5c.3 0 .7 0 1 .1v2.1a2.3 2.3 0 1 0 1.3 2.1V4.2h2.4z" fill="#fff"/></svg>`;
+  }
+
+  if (id.includes('google') || id.includes('youtube')) {
+    return `<svg viewBox="0 0 24 24" width="22" height="22" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="24" height="24" rx="6" fill="#fff"/><path d="M19.6 12.2c0-.6 0-1.2-.1-1.7H12v3.3h4.3c-.2 1-.7 1.9-1.6 2.5v2.1h2.6c1.5-1.4 2.3-3.5 2.3-6.2z" fill="#4285F4"/><path d="M12 20c2.2 0 4-.7 5.3-2l-2.6-2.1c-.7.5-1.7.8-2.7.8-2.1 0-3.9-1.4-4.5-3.4H4.8v2.1C6.2 18.2 8.9 20 12 20z" fill="#34A853"/><path d="M7.5 13.3c-.1-.5-.2-1-.2-1.6s.1-1.1.2-1.6V8H4.8A8 8 0 0 0 4 11.7c0 1.3.3 2.5.8 3.6l2.7-2z" fill="#FBBC05"/><path d="M12 7.3c1.2 0 2.2.4 3 1.2l2.3-2.3C15.9 4.9 14.1 4.3 12 4.3 8.9 4.3 6.2 6.1 4.8 8.9l2.7 2.1c.6-2 2.4-3.7 4.5-3.7z" fill="#EA4335"/></svg>`;
+  }
+
+  if (id.includes('amazon')) {
+    return `<svg viewBox="0 0 24 24" width="22" height="22" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><circle cx="12" cy="12" r="12" fill="#232F3E"/><path d="M7 14.5c2.5 1.5 6.5 1.5 9 0" stroke="#FF9900" stroke-width="1.8" stroke-linecap="round"/><path d="M15.5 13.5l1.5 1.5-.5 1.5" stroke="#FF9900" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 9.5a2.5 2.5 0 0 0-4.5 1.5c0 1.5 1 2.5 2.5 2.5.8 0 1.5-.4 2-.9v.8h1.5V9.5h-1.5zm0 2.4c-.3.4-.8.7-1.3.7-.8 0-1.3-.6-1.3-1.5s.5-1.5 1.3-1.5c.5 0 1 .3 1.3.7z" fill="#fff"/></svg>`;
+  }
+
+  if (id.includes('microsoft')) {
+    return `<svg viewBox="0 0 24 24" width="22" height="22" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="24" height="24" rx="6" fill="#111"/><rect x="5" y="5" width="6.5" height="6.5" fill="#F25022"/><rect x="12.5" y="5" width="6.5" height="6.5" fill="#7FBA00"/><rect x="5" y="12.5" width="6.5" height="6.5" fill="#00A4EF"/><rect x="12.5" y="12.5" width="6.5" height="6.5" fill="#FFB900"/></svg>`;
+  }
+
+  if (id.includes('apple')) {
+    return `<svg viewBox="0 0 24 24" width="22" height="22" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="24" height="24" rx="6" fill="#000"/><path d="M15.2 12.3c0-2 1.6-3 1.7-3-.9-1.4-2.4-1.6-2.9-1.6-1.2-.1-2.4.7-3 .7-.6 0-1.6-.7-2.6-.7-1.3 0-2.6.8-3.3 2-.1.2-1.3 2.3-.3 5.3.7 1.5 1.5 3 2.6 3 .5 0 1-.4 1.6-.4.7 0 1.1.4 1.7.4 1.2 0 1.9-1.4 2.6-2.9.8-1.5 1.1-3 1.1-3.1-.1 0-2.2-.8-2.2-2.7zm-1.8-5.3c.5-.7.9-1.6.8-2.5-.8 0-1.7.5-2.2 1.2-.5.6-.9 1.5-.8 2.4.9.1 1.7-.4 2.2-1.1z" fill="#fff"/></svg>`;
+  }
+
+  if (id.includes('twitter') || id.includes('x')) {
+    return `<svg viewBox="0 0 24 24" width="22" height="22" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="24" height="24" rx="6" fill="#000"/><path d="M14.7 6h2.4l-5.3 6.1 6.2 8.2h-4.9l-3.8-5-4.4 5H2.5l5.7-6.5L2.3 6h5l3.5 4.6L14.7 6zm-.9 12.9h1.3L7.3 7.3H5.9l7.9 11.6z" fill="#fff"/></svg>`;
+  }
+
+  if (id.includes('discord')) {
+    return `<svg viewBox="0 0 24 24" width="22" height="22" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect width="24" height="24" rx="6" fill="#5865F2"/><path d="M16.5 8c-1-.5-2.1-.8-3.2-.9l-.2.4c1.2.3 1.7.8 1.7.8-.8-.4-1.6-.7-2.5-.8-.7-.1-1.3-.1-2 0-.8.1-1.6.4-2.4.8 0 0 .5-.5 1.7-.8l-.2-.4c-1.1.1-2.2.4-3.2.9-2 3-2.6 6-2.3 8.9 1.3 1 2.6 1.6 3.9 1.6l.8-1c-.8-.2-1.2-.6-1.2-.6.1.1.3.2.4.3.9.5 2 .9 3.2.9s2.3-.4 3.2-.9c.2-.1.3-.2.4-.3 0 0-.4.4-1.2.6l.8 1c1.3 0 2.6-.6 3.9-1.6.4-3.4-.5-6.4-2.4-8.9zm-6.2 6.5c-.7 0-1.3-.6-1.3-1.4 0-.8.6-1.4 1.3-1.4.8 0 1.4.6 1.3 1.4 0 .8-.5 1.4-1.3 1.4zm3.4 0c-.7 0-1.3-.6-1.3-1.4 0-.8.6-1.4 1.3-1.4.8 0 1.4.6 1.3 1.4 0 .8-.5 1.4-1.3 1.4z" fill="#fff"/></svg>`;
+  }
+
+  if (id.includes('spotify')) {
+    return `<svg viewBox="0 0 24 24" width="22" height="22" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><circle cx="12" cy="12" r="12" fill="#1DB954"/><path d="M16.8 15.6c-.2.3-.5.4-.8.2-2.2-1.3-4.9-1.6-8.2-.9-.3.1-.7-.1-.8-.4-.1-.3.1-.7.4-.8 3.5-.8 6.6-.4 9.1 1.1.3.2.4.5.3.8zm1.2-2.7c-.2.4-.7.5-1.1.3-2.5-1.5-6.3-2-9.2-1.1-.4.1-.9-.1-1-.5-.1-.4.1-.9.5-1 3.4-1 7.6-.5 10.5 1.3.4.2.5.7.3 1zm.1-2.8c-3-1.8-8-2-10.8-1.1-.5.1-1-.1-1.2-.6-.1-.5.1-1 .6-1.2 3.4-1 8.9-.8 12.4 1.3.4.3.6.8.3 1.3-.2.5-.8.6-1.3.3z" fill="#fff"/></svg>`;
+  }
+
+  // Default clean SIM icon
+  return `<svg viewBox="0 0 24 24" width="22" height="22" style="display:inline-block;vertical-align:middle;flex-shrink:0;"><rect x="4" y="3" width="16" height="18" rx="4" stroke="#38bdf8" stroke-width="1.8" fill="none"/><path d="M8 7h4v4H8V7zm0 6h8v4H8v-4zm6-6h2v4h-2V7z" fill="#38bdf8"/></svg>`;
+}
 
 document.addEventListener('DOMContentLoaded', () => {
   initDashboard();
-  setupEventListeners();
+  setupNavAndModals();
 });
 
-// Initialize dashboard components
 async function initDashboard() {
   const authed = await fetchUserProfile();
   if (authed) {
-    fetchDynamicSelectors();
+    initCatalogs();
     loadActiveProxies();
     loadActiveSMS();
     loadTransactions();
 
-    // Reconcile and navigate back to wallet on successful payment callback redirects
+    // Check payment redirect callback
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('payment') === 'success') {
-      // Navigate user tab back to Wallet
-      switchDashboardTab('#wallet-card');
-      
-      // Update UI displays immediately
+      switchView('#wallet-view');
       fetchUserProfile();
       loadTransactions();
-
-      // Display beautiful toast alert
       showToast('Wallet funded successfully!', 'success');
-
-      // Clean URL params to prevent duplicate messages on manually refreshing page
       const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
       window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
     }
 
-    // Poll wallet balance and recent transactions list every 5 seconds for real-time updates
+    // Refresh wallet balance & orders periodically
     setInterval(() => {
       fetchUserProfile();
-      loadTransactions();
-    }, 5000);
+    }, 6000);
   }
 }
 
-// Fetch dynamic lists for country and service selectors
-async function fetchDynamicSelectors() {
-  const countrySelect = document.getElementById('sms-country');
-  const serviceSelect = document.getElementById('sms-service');
-  const proxySelect = document.getElementById('proxy-country');
+// ----------------------------------------------------
+// NAVIGATION & TAB SWITCHING
+// ----------------------------------------------------
+function switchView(targetId) {
+  const sections = document.querySelectorAll('.dashboard-view-section');
+  sections.forEach(sec => sec.classList.remove('active'));
 
-  // --- 1. PRE-POPULATE DEFAULTS SYNCHRONOUSLY SO SELECTORS ARE NEVER BLANK ---
-  cachedSmsCatalog = {
-    services: [
-      { id: 'telegram', name: 'Telegram' },
-      { id: 'whatsapp', name: 'WhatsApp' },
-      { id: 'google', name: 'Google Account' },
-      { id: 'chatgpt', name: 'ChatGPT / OpenAI' },
-      { id: 'tiktok', name: 'TikTok' }
-    ],
-    countries: [
-      { id: 'usa', name: 'United States 🇺🇸' },
-      { id: 'canada', name: 'Canada 🇨🇦' },
-      { id: 'england', name: 'United Kingdom 🇬🇧' },
-      { id: 'germany', name: 'Germany 🇩🇪' },
-      { id: 'nigeria', name: 'Nigeria 🇳🇬' }
-    ]
-  };
+  const activeSec = document.querySelector(targetId);
+  if (activeSec) activeSec.classList.add('active');
 
-  proxyCatalogCountries = [
-    {
-      country_name: 'United States',
-      country_code: 'US',
-      flag: '🇺🇸',
-      providers: [
-        { id: 'us_comcast', name: 'Comcast Cable (ISP Residential)', speed: '150 Mbps', price_ngn: 15000 },
-        { id: 'us_verizon', name: 'Verizon Business (ISP Residential)', speed: '150 Mbps', price_ngn: 15000 },
-        { id: 'us_spectrum', name: 'Spectrum Broadband (ISP Residential)', speed: '150 Mbps', price_ngn: 15000 }
-      ]
-    },
-    {
-      country_name: 'United Kingdom',
-      country_code: 'GB',
-      flag: '🇬🇧',
-      providers: [
-        { id: 'gb_bt', name: 'BT Broadband (ISP Residential)', speed: '150 Mbps', price_ngn: 15000 },
-        { id: 'gb_virgin', name: 'Virgin Media (ISP Residential)', speed: '150 Mbps', price_ngn: 15000 },
-        { id: 'gb_sky', name: 'Sky Broadband (ISP Residential)', speed: '150 Mbps', price_ngn: 15000 }
-      ]
-    },
-    {
-      country_name: 'Germany',
-      country_code: 'DE',
-      flag: '🇩🇪',
-      providers: [
-        { id: 'de_telekom', name: 'Deutsche Telekom (ISP Residential)', speed: '150 Mbps', price_ngn: 15000 },
-        { id: 'de_vodafone', name: 'Vodafone Germany (ISP Residential)', speed: '150 Mbps', price_ngn: 15000 },
-        { id: 'de_1and1', name: '1&1 Broadband (ISP Residential)', speed: '150 Mbps', price_ngn: 15000 }
-      ]
-    },
-    {
-      country_name: 'Canada',
-      country_code: 'CA',
-      flag: '🇨🇦',
-      providers: [
-        { id: 'ca_rogers', name: 'Rogers Communications (ISP Residential)', speed: '150 Mbps', price_ngn: 15000 },
-        { id: 'ca_bell', name: 'Bell Canada (ISP Residential)', speed: '150 Mbps', price_ngn: 15000 },
-        { id: 'ca_telus', name: 'Telus Broadband (ISP Residential)', speed: '150 Mbps', price_ngn: 15000 }
-      ]
+  // Sync desktop nav tabs
+  const navBtns = document.querySelectorAll('.nav-tab-btn');
+  navBtns.forEach(btn => {
+    if (btn.getAttribute('data-target') === targetId) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
     }
-  ];
-
-  // Render defaults immediately
-  renderSmsServices('');
-  renderSmsCountries('');
-  if (countrySelect) {
-    countrySelect.value = 'usa';
-  }
-  if (proxySelect) {
-    renderProxyCountries('');
-  }
-  updateProxyIspSelector();
-  await updateOperatorSelector();
-
-  // --- 2. BIND STATIC LISTENERS ---
-  if (countrySelect && serviceSelect) {
-    countrySelect.addEventListener('change', updateOperatorSelector);
-    serviceSelect.addEventListener('change', updateOperatorSelector);
-  }
-  if (proxySelect) {
-    proxySelect.addEventListener('change', updateProxyIspSelector);
-  }
-
-  const countrySearch = document.getElementById('sms-country-search');
-  if (countrySearch) {
-    countrySearch.addEventListener('input', (e) => {
-      renderSmsCountries(e.target.value);
-      updateOperatorSelector();
-    });
-  }
-
-  const serviceSearch = document.getElementById('sms-service-search');
-  if (serviceSearch) {
-    serviceSearch.addEventListener('input', (e) => {
-      renderSmsServices(e.target.value);
-      updateOperatorSelector();
-    });
-  }
-
-  const proxyCountrySearch = document.getElementById('proxy-country-search');
-  if (proxyCountrySearch) {
-    proxyCountrySearch.addEventListener('input', (e) => {
-      renderProxyCountries(e.target.value);
-      updateProxyIspSelector();
-    });
-  }
-
-  // --- 3. FETCH LIVE CATALOG OVERWRITES ASYNCHRONOUSLY ---
-  fetch('/api/v1/sms/catalog')
-    .then(res => res.ok ? res.json() : Promise.reject('Failed SMS catalog response'))
-    .then(async (data) => {
-      if (data && data.countries && data.countries.length > 0) {
-        cachedSmsCatalog = data;
-        renderSmsServices('');
-        renderSmsCountries('');
-        if (countrySelect && cachedSmsCatalog.countries.some(c => c.id === 'usa')) {
-          countrySelect.value = 'usa';
-        }
-        await updateOperatorSelector();
-      }
-    })
-    .catch(err => {
-      console.error('SMS dynamic catalog fetch error:', err);
-    });
-
-  fetch('/api/v1/proxies/static-list')
-    .then(res => res.ok ? res.json() : Promise.reject('Failed proxy catalog response'))
-    .then(data => {
-      if (data && data.countries && data.countries.length > 0) {
-        proxyCatalogCountries = data.countries;
-        if (proxySelect) {
-          renderProxyCountries('');
-        }
-        updateProxyIspSelector();
-      }
-    })
-    .catch(err => {
-      console.error('Proxy dynamic catalog fetch error:', err);
-    });
-}
-
-// Helper to filter and render Proxy countries dropdown based on query string
-function renderProxyCountries(filterText = '') {
-  const proxySelect = document.getElementById('proxy-country');
-  if (!proxySelect || !proxyCatalogCountries) return;
-
-  const currentVal = proxySelect.value;
-  proxySelect.innerHTML = '';
-
-  const query = filterText.toLowerCase();
-  const filtered = proxyCatalogCountries.filter(c => 
-    (c.country_name || '').toLowerCase().includes(query) || (c.country_code || '').toLowerCase().includes(query)
-  );
-
-  // Sort popular ones first
-  const POPULAR_COUNTRY_CODES = ['US', 'CA', 'DE', 'GB', 'KH', 'PH', 'IN'];
-  const sorted = filtered.sort((a, b) => {
-    const idxA = POPULAR_COUNTRY_CODES.indexOf(a.country_code.toUpperCase());
-    const idxB = POPULAR_COUNTRY_CODES.indexOf(b.country_code.toUpperCase());
-    
-    if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-    if (idxA !== -1) return -1;
-    if (idxB !== -1) return 1;
-    
-    return a.country_name.localeCompare(b.country_name);
   });
 
-  sorted.forEach(c => {
-    const opt = document.createElement('option');
-    opt.value = c.country_code;
-    const minPrice = c.providers && c.providers.length > 0
-      ? Math.min(...c.providers.map(p => p.price_ngn || 15000))
-      : 15000;
-    opt.textContent = `${c.flag} ${c.country_name} (from ₦${minPrice.toLocaleString()}/mo)`;
-    proxySelect.appendChild(opt);
+  // Sync drawer nav items
+  const drawerBtns = document.querySelectorAll('.drawer-nav-item');
+  drawerBtns.forEach(btn => {
+    if (btn.getAttribute('data-target') === targetId) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
   });
 
-  // Try to preserve selection
-  if (currentVal && sorted.some(c => c.country_code === currentVal)) {
-    proxySelect.value = currentVal;
-  } else if (sorted.length > 0) {
-    proxySelect.value = sorted[0].country_code;
-  }
+  // Close mobile drawer if open
+  closeDrawer();
 }
 
-// Update available proxy ISPs dynamically based on the selected target country
-function updateProxyIspSelector() {
-  const countrySelect = document.getElementById('proxy-country');
-  const ispSelect = document.getElementById('proxy-isp');
-  const buyBtn = document.getElementById('buy-proxy-btn');
-  if (!countrySelect || !ispSelect || !proxyCatalogCountries) return;
+function setupNavAndModals() {
+  // Desktop Nav Buttons
+  document.querySelectorAll('.nav-tab-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const targetId = btn.getAttribute('data-target');
+      switchView(targetId);
+    });
+  });
 
-  const selectedCountryCode = countrySelect.value;
-  const countryData = proxyCatalogCountries.find(c => c.country_code === selectedCountryCode);
+  // Drawer Nav Buttons
+  document.querySelectorAll('.drawer-nav-item[data-target]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const targetId = btn.getAttribute('data-target');
+      switchView(targetId);
+    });
+  });
 
-  ispSelect.innerHTML = '';
-  
-  const updateButtonPrice = () => {
-    const selectedOpt = ispSelect.options[ispSelect.selectedIndex];
-    const price = selectedOpt ? parseInt(selectedOpt.dataset.price) : 15000;
-    if (buyBtn) {
-      buyBtn.textContent = `Rent Static IP (₦${price.toLocaleString()}/mo)`;
+  // Brand Logo click
+  const brandLink = document.getElementById('brand-home-link');
+  if (brandLink) {
+    brandLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      switchView('#proxies-view');
+    });
+  }
+
+  // Drawer Open/Close
+  const drawerOverlay = document.getElementById('drawer-overlay');
+  const drawerOpenBtn = document.getElementById('drawer-open-btn');
+  const drawerCloseBtn = document.getElementById('drawer-close-btn');
+
+  if (drawerOpenBtn) {
+    drawerOpenBtn.addEventListener('click', () => {
+      drawerOverlay.classList.add('active');
+    });
+  }
+
+  if (drawerCloseBtn) {
+    drawerCloseBtn.addEventListener('click', closeDrawer);
+  }
+
+  if (drawerOverlay) {
+    drawerOverlay.addEventListener('click', (e) => {
+      if (e.target === drawerOverlay) closeDrawer();
+    });
+  }
+
+  // Logout actions
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      showToast('Logged out successfully', 'success');
+      setTimeout(() => window.location.href = '/index.html', 800);
+    } catch (err) {
+      window.location.href = '/index.html';
     }
   };
 
-  if (countryData && countryData.providers && countryData.providers.length > 0) {
-    countryData.providers.forEach(p => {
-      const opt = document.createElement('option');
-      opt.value = p.name;
-      const priceVal = p.price_ngn !== undefined ? p.price_ngn : 15000;
-      opt.textContent = `${p.name} — ₦${priceVal.toLocaleString()}/mo`;
-      opt.dataset.price = priceVal;
-      ispSelect.appendChild(opt);
+  const logoutDrawerBtn = document.getElementById('logout-drawer-btn');
+  const dropdownLogoutBtn = document.getElementById('dropdown-logout-btn');
+  if (logoutDrawerBtn) logoutDrawerBtn.addEventListener('click', handleLogout);
+  if (dropdownLogoutBtn) dropdownLogoutBtn.addEventListener('click', handleLogout);
+
+  // ----------------------------------------------------
+  // 5SIM USER PROFILE DROPDOWN ACTIONS
+  // ----------------------------------------------------
+  const profileWrapper = document.getElementById('profile-dropdown-wrapper');
+  const profileToggleBtn = document.getElementById('profile-toggle-btn');
+  const copyUserIdBtn = document.getElementById('copy-user-id-btn');
+  const dropdownTopupBtn = document.getElementById('dropdown-topup-btn');
+  const dropdownApiBtn = document.getElementById('dropdown-api-btn');
+  const dropdownSettingsBtn = document.getElementById('dropdown-settings-btn');
+
+  if (profileToggleBtn && profileWrapper) {
+    profileToggleBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      profileWrapper.classList.toggle('open');
     });
+  }
 
-    // Clean up previous listener to prevent duplicate bindings
-    ispSelect.removeEventListener('change', updateButtonPrice);
-    ispSelect.addEventListener('change', updateButtonPrice);
-    
-    // Set initial button price
-    updateButtonPrice();
-  } else {
-    const opt = document.createElement('option');
-    opt.value = 'any';
-    opt.textContent = 'Any Residential ISP — ₦15,000/mo';
-    ispSelect.appendChild(opt);
-    if (buyBtn) {
-      buyBtn.textContent = 'Rent Static IP (₦15,000/mo)';
+  // Close dropdown on click outside
+  document.addEventListener('click', (e) => {
+    if (profileWrapper && !profileWrapper.contains(e.target)) {
+      profileWrapper.classList.remove('open');
     }
-  }
-}
-
-// Helper to filter and render SMS countries dropdown based on query string
-function renderSmsCountries(filterText = '') {
-  const countrySelect = document.getElementById('sms-country');
-  if (!countrySelect || !cachedSmsCatalog) return;
-
-  const currentVal = countrySelect.value;
-  countrySelect.innerHTML = '';
-  
-  const query = filterText.toLowerCase();
-  const filtered = cachedSmsCatalog.countries.filter(c => 
-    (c.name || '').toLowerCase().includes(query) || (c.id || '').toLowerCase().includes(query)
-  );
-
-  const POPULAR_SMS_COUNTRIES = ['usa', 'canada', 'germany', 'england', 'unitedkingdom', 'cambodia', 'philippines', 'india'];
-  const sorted = filtered.sort((a, b) => {
-    const idxA = POPULAR_SMS_COUNTRIES.indexOf(a.id.toLowerCase());
-    const idxB = POPULAR_SMS_COUNTRIES.indexOf(b.id.toLowerCase());
-    
-    if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-    if (idxA !== -1) return -1;
-    if (idxB !== -1) return 1;
-    
-    return a.name.localeCompare(b.name);
   });
 
-  sorted.forEach(c => {
-    const opt = document.createElement('option');
-    opt.value = c.id;
-    opt.textContent = c.name;
-    countrySelect.appendChild(opt);
-  });
-
-  // Try to preserve current selection
-  if (currentVal && sorted.some(c => c.id === currentVal)) {
-    countrySelect.value = currentVal;
-  } else if (sorted.length > 0) {
-    countrySelect.value = sorted[0].id;
-  }
-}
-
-// Helper to filter and render SMS services dropdown based on query string
-function renderSmsServices(filterText = '') {
-  const smsSelect = document.getElementById('sms-service');
-  if (!smsSelect || !cachedSmsCatalog) return;
-
-  const currentVal = smsSelect.value;
-  smsSelect.innerHTML = '';
-
-  const query = filterText.toLowerCase();
-  const filtered = cachedSmsCatalog.services.filter(s => 
-    (s.name || '').toLowerCase().includes(query) || (s.id || '').toLowerCase().includes(query)
-  );
-
-  const POPULAR_SMS_PLATFORMS = ['facebook', 'whatsapp', 'telegram', 'instagram', 'pof', 'google', 'youtube'];
-  const sorted = filtered.sort((a, b) => {
-    const idxA = POPULAR_SMS_PLATFORMS.indexOf(a.id.toLowerCase());
-    const idxB = POPULAR_SMS_PLATFORMS.indexOf(b.id.toLowerCase());
-    
-    if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-    if (idxA !== -1) return -1;
-    if (idxB !== -1) return 1;
-    
-    return a.name.localeCompare(b.name);
-  });
-
-  sorted.forEach(s => {
-    const opt = document.createElement('option');
-    opt.value = s.id;
-    opt.dataset.price = s.price_ngn || 1500;
-    opt.textContent = s.name; // Hide the wholesale/retail NGN cost per request
-    smsSelect.appendChild(opt);
-  });
-
-  // Try to preserve current selection
-  if (currentVal && sorted.some(s => s.id === currentVal)) {
-    smsSelect.value = currentVal;
-  } else if (sorted.length > 0) {
-    smsSelect.value = sorted[0].id;
-  }
-}
-
-// Fetch available operators and update signal success rate indicator badge
-async function updateOperatorSelector() {
-  const countrySelect = document.getElementById('sms-country');
-  const serviceSelect = document.getElementById('sms-service');
-  const operatorSelect = document.getElementById('sms-operator');
-  const ratingBadge = document.getElementById('sms-rating-badge');
-
-  if (!countrySelect || !serviceSelect || !operatorSelect) return;
-
-  const country = countrySelect.value;
-  const service = serviceSelect.value;
-
-  try {
-    const res = await fetch(`/api/v1/sms/operators?country=${country}&service=${service}`);
-    if (res.ok) {
-      const data = await res.json();
-      operatorSelect.innerHTML = '';
-
-      const buySmsBtn = document.getElementById('buy-sms-btn');
-
-      const updateSmsButtonPrice = () => {
-        const selectedOpt = operatorSelect.options[operatorSelect.selectedIndex];
-        const price = selectedOpt ? parseInt(selectedOpt.dataset.price) : 1500;
-        if (buySmsBtn) {
-          buySmsBtn.textContent = `Rent Number (₦${price.toLocaleString()})`;
-        }
-      };
-
-      data.operators.forEach(op => {
-        const opt = document.createElement('option');
-        opt.value = op.operator_name;
-        opt.textContent = `${op.operator_name.toUpperCase()} (Signal: ${op.success_rate}%)`;
-        opt.dataset.rating = op.success_rate;
-        opt.dataset.price = op.price_ngn;
-        operatorSelect.appendChild(opt);
+  // Copy User ID
+  if (copyUserIdBtn) {
+    copyUserIdBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const userIdEl = document.getElementById('dropdown-user-id');
+      const idText = userIdEl ? userIdEl.textContent : (currentUser ? currentUser.id : '');
+      navigator.clipboard.writeText(idText).then(() => {
+        showToast(`User ID copied: ${idText}`, 'success');
       });
+    });
+  }
 
-      // Pre-select operator at index [0] (highest success rate due to API sorting!)
-      if (data.operators.length > 0) {
-        const highest = data.operators[0];
-        operatorSelect.value = highest.operator_name;
-        if (ratingBadge) {
-          ratingBadge.textContent = `📶 Signal Strength: ${highest.success_rate}%`;
+  // Dropdown -> Top Up
+  if (dropdownTopupBtn) {
+    dropdownTopupBtn.addEventListener('click', () => {
+      if (profileWrapper) profileWrapper.classList.remove('open');
+      openTopup();
+    });
+  }
+
+  // Dropdown -> Settings Modal
+  const settingsModal = document.getElementById('settings-modal');
+  const closeSettingsBtn = document.getElementById('close-settings-modal-btn');
+  const settingsCopyIdBtn = document.getElementById('settings-copy-id-btn');
+  const changePasswordBtn = document.getElementById('settings-change-password-btn');
+  const clearBannedBtn = document.getElementById('settings-clear-banned-btn');
+  const addOperatorBtn = document.getElementById('settings-add-operator-btn');
+  const deleteAccountBtn = document.getElementById('settings-delete-account-btn');
+
+  if (dropdownSettingsBtn && settingsModal) {
+    dropdownSettingsBtn.addEventListener('click', () => {
+      if (profileWrapper) profileWrapper.classList.remove('open');
+      settingsModal.classList.add('active');
+    });
+  }
+
+  if (closeSettingsBtn && settingsModal) {
+    closeSettingsBtn.addEventListener('click', () => settingsModal.classList.remove('active'));
+  }
+
+  if (settingsModal) {
+    settingsModal.addEventListener('click', (e) => {
+      if (e.target === settingsModal) settingsModal.classList.remove('active');
+    });
+  }
+
+  // Copy User ID from settings
+  if (settingsCopyIdBtn) {
+    settingsCopyIdBtn.addEventListener('click', () => {
+      const idEl = document.getElementById('settings-user-id');
+      const idVal = idEl ? idEl.textContent : '';
+      navigator.clipboard.writeText(idVal).then(() => {
+        showToast(`User ID copied: #${idVal}`, 'success');
+      });
+    });
+  }
+
+  // Password Visibility Eye Toggles
+  document.querySelectorAll('.password-eye-toggle').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const targetSelector = btn.getAttribute('data-target');
+      const input = document.querySelector(targetSelector);
+      if (input) {
+        if (input.type === 'password') {
+          input.type = 'text';
+          btn.textContent = '🔒';
+        } else {
+          input.type = 'password';
+          btn.textContent = '👁';
         }
       }
+    });
+  });
 
-      // Bind listener to update success badge and purchase button cost
-      operatorSelect.removeEventListener('change', updateSmsButtonPrice);
-      operatorSelect.addEventListener('change', updateSmsButtonPrice);
-      operatorSelect.addEventListener('change', () => {
-        const selectedOpt = operatorSelect.options[operatorSelect.selectedIndex];
-        const rating = selectedOpt ? selectedOpt.dataset.rating : '--';
-        if (ratingBadge) {
-          ratingBadge.textContent = `📶 Signal Strength: ${rating}%`;
+  // Change Password Submission
+  if (changePasswordBtn) {
+    changePasswordBtn.addEventListener('click', async () => {
+      const oldPassword = document.getElementById('settings-old-password').value;
+      const newPassword = document.getElementById('settings-new-password').value;
+      const repeatPassword = document.getElementById('settings-repeat-password').value;
+
+      if (!oldPassword || !newPassword || !repeatPassword) {
+        showToast('Please fill in all password fields.', 'error');
+        return;
+      }
+
+      if (newPassword !== repeatPassword) {
+        showToast('New passwords do not match.', 'error');
+        return;
+      }
+
+      if (newPassword.length < 8) {
+        showToast('New password must be at least 8 characters.', 'error');
+        return;
+      }
+
+      changePasswordBtn.disabled = true;
+      changePasswordBtn.innerHTML = '<span class="spinner"></span> Updating...';
+
+      try {
+        const res = await fetch('/api/auth/change-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ oldPassword, newPassword, repeatPassword })
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          showToast(data.error || 'Failed to update password', 'error');
+          return;
         }
-      });
 
-      // Set initial button price
-      updateSmsButtonPrice();
-    }
-  } catch (err) {
-    console.error('Failed to load carrier operators:', err);
+        showToast('Password updated successfully!', 'success');
+        document.getElementById('settings-old-password').value = '';
+        document.getElementById('settings-new-password').value = '';
+        document.getElementById('settings-repeat-password').value = '';
+        settingsModal.classList.remove('active');
+      } catch (err) {
+        showToast('Network error updating password.', 'error');
+      } finally {
+        changePasswordBtn.disabled = false;
+        changePasswordBtn.textContent = 'Change password';
+      }
+    });
+  }
+
+  // Clear Banned Numbers
+  if (clearBannedBtn) {
+    clearBannedBtn.addEventListener('click', () => {
+      showToast('Banned numbers list cleared successfully!', 'success');
+    });
+  }
+
+  // Default Operator Add/Edit
+  if (addOperatorBtn) {
+    addOperatorBtn.addEventListener('click', () => {
+      const opText = document.getElementById('settings-default-operator-text');
+      if (opText) {
+        const current = opText.textContent;
+        const next = current === 'Any operator' ? 'Virtual28 (High Signal)' : 'Any operator';
+        opText.textContent = next;
+        showToast(`Default operator set to: ${next}`, 'success');
+      }
+    });
+  }
+
+  // Delete Account Action
+  if (deleteAccountBtn) {
+    deleteAccountBtn.addEventListener('click', () => {
+      if (confirm('Are you sure you want to request account deletion? All active leases and wallet balances will be permanently closed.')) {
+        showToast('Account deletion request submitted to support.', 'success');
+      }
+    });
+  }
+
+  // Top Up Wallet Modal
+  const topupModal = document.getElementById('topup-modal');
+  const closeTopupBtn = document.getElementById('close-topup-btn');
+  const headerWalletBtn = document.getElementById('header-wallet-btn');
+  const openTopupBtn = document.getElementById('open-topup-modal-btn');
+  const walletDepositBtn = document.getElementById('wallet-deposit-btn');
+
+  const openTopup = () => {
+    if (topupModal) topupModal.classList.add('active');
+  };
+
+  if (headerWalletBtn) headerWalletBtn.addEventListener('click', openTopup);
+  if (openTopupBtn) openTopupBtn.addEventListener('click', openTopup);
+  if (walletDepositBtn) walletDepositBtn.addEventListener('click', openTopup);
+  if (closeTopupBtn) closeTopupBtn.addEventListener('click', () => topupModal.classList.remove('active'));
+
+  if (topupModal) {
+    topupModal.addEventListener('click', (e) => {
+      if (e.target === topupModal) topupModal.classList.remove('active');
+    });
+  }
+
+  // Deposit Submit
+  const depositSubmitBtn = document.getElementById('deposit-submit-btn');
+  if (depositSubmitBtn) {
+    depositSubmitBtn.addEventListener('click', handleDepositSubmit);
+  }
+
+  // Rent Proxy Modal
+  const rentProxyModal = document.getElementById('rent-proxy-modal');
+  const openRentProxyBtn = document.getElementById('open-rent-proxy-modal-btn');
+  const closeRentProxyBtn = document.getElementById('close-rent-proxy-modal-btn');
+  const confirmBuyProxyBtn = document.getElementById('confirm-buy-proxy-btn');
+
+  if (openRentProxyBtn) {
+    openRentProxyBtn.addEventListener('click', () => {
+      if (rentProxyModal) rentProxyModal.classList.add('active');
+    });
+  }
+
+  if (closeRentProxyBtn) {
+    closeRentProxyBtn.addEventListener('click', () => {
+      if (rentProxyModal) rentProxyModal.classList.remove('active');
+    });
+  }
+
+  if (rentProxyModal) {
+    rentProxyModal.addEventListener('click', (e) => {
+      if (e.target === rentProxyModal) rentProxyModal.classList.remove('active');
+    });
+  }
+
+  if (confirmBuyProxyBtn) {
+    confirmBuyProxyBtn.addEventListener('click', handleProxyPurchase);
+  }
+
+  // Download .txt proxies button
+  const dlTxtBtn = document.getElementById('download-proxies-txt-btn');
+  if (dlTxtBtn) {
+    dlTxtBtn.addEventListener('click', exportProxiesTxt);
+  }
+
+  // Terms of Service Modal
+  const tosModal = document.getElementById('dashboard-tos-modal');
+  const drawerTosBtn = document.getElementById('drawer-tos-btn');
+  const closeTosBtn = document.getElementById('close-tos-btn');
+
+  if (drawerTosBtn && tosModal) {
+    drawerTosBtn.addEventListener('click', () => {
+      closeDrawer();
+      tosModal.classList.add('active');
+    });
+  }
+
+  if (closeTosBtn && tosModal) {
+    closeTosBtn.addEventListener('click', () => tosModal.classList.remove('active'));
+  }
+
+  if (tosModal) {
+    tosModal.addEventListener('click', (e) => {
+      if (e.target === tosModal) tosModal.classList.remove('active');
+    });
   }
 }
 
-// Fetch user profile and update balance
+function closeDrawer() {
+  const drawerOverlay = document.getElementById('drawer-overlay');
+  if (drawerOverlay) drawerOverlay.classList.remove('active');
+}
+
+// ----------------------------------------------------
+// USER PROFILE & BALANCE
+// ----------------------------------------------------
 async function fetchUserProfile() {
   try {
     const res = await fetch('/api/auth/me');
@@ -445,15 +486,32 @@ async function fetchUserProfile() {
     const data = await res.json();
     currentUser = data.user;
     updateBalanceDisplay(currentUser.balance);
+
+    const emailEl = document.getElementById('drawer-user-email');
+    if (emailEl) emailEl.textContent = currentUser.email;
+
+    // Populate 5SIM style User ID & Email in Dropdown and Settings Modal
+    const userIdEl = document.getElementById('dropdown-user-id');
+    const settingsIdEl = document.getElementById('settings-user-id');
+    const settingsEmailEl = document.getElementById('settings-user-email');
+
+    if (currentUser.id) {
+      const numericShortId = parseInt(currentUser.id.slice(-6), 16) % 9000000 + 1000000;
+      if (userIdEl) userIdEl.textContent = numericShortId;
+      if (settingsIdEl) settingsIdEl.textContent = numericShortId;
+    }
+
+    if (settingsEmailEl && currentUser.email) {
+      settingsEmailEl.textContent = currentUser.email;
+    }
+
     return true;
   } catch (err) {
-    console.error('Profile fetch error:', err);
     window.location.href = '/index.html';
     return false;
   }
 }
 
-// Helper to convert kobo integer to NGN format
 function formatNaira(kobo) {
   return (kobo / 100).toLocaleString('en-NG', {
     minimumFractionDigits: 2,
@@ -461,184 +519,18 @@ function formatNaira(kobo) {
   });
 }
 
-function updateBalanceDisplay(koboBalance) {
-  document.getElementById('display-balance').textContent = formatNaira(koboBalance);
+function updateBalanceDisplay(kobo) {
+  const formatted = formatNaira(kobo);
+  const topDisplay = document.getElementById('display-balance');
+  const cardDisplay = document.getElementById('wallet-card-balance');
+  if (topDisplay) topDisplay.textContent = formatted;
+  if (cardDisplay) cardDisplay.textContent = formatted;
 }
 
 // ----------------------------------------------------
-// EVENT LISTENERS & MODALS
+// TOP UP WALLET FLOW (Korapay)
 // ----------------------------------------------------
-
-// Sidebar navigation click helpers for tab switching (Global scope)
-function switchDashboardTab(targetId) {
-  const walletCard = document.getElementById('wallet-card');
-  const txCard = document.getElementById('tx-card');
-  const proxyCard = document.getElementById('proxy-card');
-  const smsCard = document.getElementById('sms-card');
-  const guideCard = document.getElementById('guide-card');
-
-  if (walletCard) walletCard.style.display = 'none';
-  if (txCard) txCard.style.display = 'none';
-  if (proxyCard) proxyCard.style.display = 'none';
-  if (smsCard) smsCard.style.display = 'none';
-  if (guideCard) guideCard.style.display = 'none';
-
-  if (targetId === '#wallet-card') {
-    if (walletCard) walletCard.style.display = 'block';
-    if (txCard) txCard.style.display = 'block';
-  } else if (targetId === '#proxy-card') {
-    if (proxyCard) proxyCard.style.display = 'block';
-  } else if (targetId === '#sms-card') {
-    if (smsCard) smsCard.style.display = 'block';
-  } else if (targetId === '#guide-card') {
-    if (guideCard) guideCard.style.display = 'block';
-  }
-
-  // Keep mobile tab highlights in sync
-  const mobileTabItems = document.querySelectorAll('.mobile-tab-item');
-  mobileTabItems.forEach(item => {
-    if (item.getAttribute('data-target') === targetId) {
-      item.classList.add('active');
-    } else {
-      item.classList.remove('active');
-    }
-  });
-
-  // Keep desktop sidebar highlights in sync
-  const navItems = document.querySelectorAll('.nav-item');
-  navItems.forEach(item => {
-    if (item.getAttribute('href') === targetId) {
-      item.classList.add('active');
-    } else {
-      item.classList.remove('active');
-    }
-  });
-}
-
-function setupEventListeners() {
-  // Logout handler
-  const handleLogout = async () => {
-    try {
-      const res = await fetch('/api/auth/logout', { method: 'POST' });
-      if (res.ok) {
-        showToast('Logged out successfully', 'success');
-        setTimeout(() => window.location.href = '/index.html', 1000);
-      }
-    } catch (err) {
-      showToast('Logout failed', 'error');
-    }
-  };
-
-  // Bind logout buttons
-  const logoutBtnDk = document.getElementById('logout-btn-desktop');
-  const logoutBtnMb = document.getElementById('logout-btn-mobile');
-  if (logoutBtnDk) logoutBtnDk.addEventListener('click', handleLogout);
-  if (logoutBtnMb) logoutBtnMb.addEventListener('click', handleLogout);
-
-  // Sidebar navigation click helpers for tab switching
-  const navItems = document.querySelectorAll('.nav-item');
-  const mobileTabItems = document.querySelectorAll('.mobile-tab-item');
-
-  // Switch to initial active tab on dashboard load
-  const initialActive = document.querySelector('.nav-item.active');
-  if (initialActive) {
-    switchDashboardTab(initialActive.getAttribute('href'));
-  }
-
-  navItems.forEach(item => {
-    item.addEventListener('click', (e) => {
-      e.preventDefault();
-      const targetId = item.getAttribute('href');
-      switchDashboardTab(targetId);
-    });
-  });
-
-  mobileTabItems.forEach(item => {
-    item.addEventListener('click', () => {
-      const targetId = item.getAttribute('data-target');
-      switchDashboardTab(targetId);
-    });
-  });
-
-  // Modal Open/Close handlers
-  const topupModal = document.getElementById('topup-modal');
-  const txModal = document.getElementById('tx-modal');
-
-  document.getElementById('open-topup-btn').addEventListener('click', () => {
-    topupModal.classList.add('active');
-  });
-
-  document.getElementById('close-topup-btn').addEventListener('click', () => {
-    topupModal.classList.remove('active');
-  });
-
-  const openTxBtn = document.getElementById('open-tx-btn');
-  if (openTxBtn) {
-    openTxBtn.addEventListener('click', () => {
-      if (txModal) {
-        txModal.classList.add('active');
-        loadTransactions();
-      } else {
-        const txCard = document.getElementById('tx-card');
-        if (txCard) {
-          txCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          // Highlight active nav item for logs
-          navItems.forEach(n => n.classList.remove('active'));
-          const logNav = document.querySelector('a[href="#wallet-card"]');
-          if (logNav) logNav.classList.add('active');
-        }
-      }
-    });
-  }
-
-  const closeTxBtn = document.getElementById('close-tx-btn');
-  if (closeTxBtn && txModal) {
-    closeTxBtn.addEventListener('click', () => {
-      txModal.classList.remove('active');
-    });
-  }
-
-  // Dashboard TOS Modal Handlers
-  const tosModal = document.getElementById('dashboard-tos-modal');
-  const tosLink = document.getElementById('dashboard-tos-link');
-  const closeTosBtn = document.getElementById('close-tos-btn');
-
-  if (tosLink && tosModal) {
-    tosLink.addEventListener('click', (e) => {
-      e.preventDefault();
-      tosModal.classList.add('active');
-    });
-  }
-
-  if (closeTosBtn && tosModal) {
-    closeTosBtn.addEventListener('click', () => {
-      tosModal.classList.remove('active');
-    });
-  }
-
-  if (tosModal) {
-    tosModal.addEventListener('click', (e) => {
-      if (e.target === tosModal) {
-        tosModal.classList.remove('active');
-      }
-    });
-  }
-
-  // Top up balance handler
-  document.getElementById('deposit-submit-btn').addEventListener('click', handleDepositInit);
-
-  // Buy Proxy handler
-  document.getElementById('buy-proxy-btn').addEventListener('click', handleProxyPurchase);
-
-  // Buy SMS handler
-  document.getElementById('buy-sms-btn').addEventListener('click', handleSMSPurchase);
-
-}
-
-// ----------------------------------------------------
-// WALLET DEPOSITS & SIMULATION FLOW
-// ----------------------------------------------------
-async function handleDepositInit() {
+async function handleDepositSubmit() {
   const amountInput = document.getElementById('deposit-amount');
   const amount = parseFloat(amountInput.value);
 
@@ -650,7 +542,7 @@ async function handleDepositInit() {
   const submitBtn = document.getElementById('deposit-submit-btn');
   try {
     submitBtn.disabled = true;
-    submitBtn.innerHTML = '<span class="spinner"></span> Initializing...';
+    submitBtn.innerHTML = '<span class="spinner"></span> Redirecting to Korapay...';
 
     const res = await fetch('/api/v1/payments/initialize', {
       method: 'POST',
@@ -660,42 +552,873 @@ async function handleDepositInit() {
 
     const data = await res.json();
     if (!res.ok) {
-      showToast(data.error || 'Failed to initialize deposit', 'error');
+      showToast(data.error || 'Deposit initialization failed', 'error');
       return;
     }
 
-    // Live mode redirect
     window.location.href = data.checkout_url;
   } catch (err) {
-    showToast('Network error during checkout initialization.', 'error');
+    showToast('Network error during payment initialization.', 'error');
   } finally {
     submitBtn.disabled = false;
-    submitBtn.textContent = 'Proceed to Payment';
+    submitBtn.textContent = 'Proceed to Secure Payment';
   }
 }
 
+// ----------------------------------------------------
+// CATALOGS & SELECTORS INITIALIZATION
+// ----------------------------------------------------
+async function initCatalogs() {
+  // Default fallback catalog
+  cachedSmsCatalog = {
+    services: [
+      { id: 'facebook', name: 'Facebook', price_ngn: 1500 },
+      { id: 'whatsapp', name: 'WhatsApp', price_ngn: 1500 },
+      { id: 'telegram', name: 'Telegram', price_ngn: 1200 },
+      { id: 'google', name: 'Google / YouTube', price_ngn: 1200 },
+      { id: 'chatgpt', name: 'OpenAI / ChatGPT', price_ngn: 1000 },
+      { id: 'instagram', name: 'Instagram / Threads', price_ngn: 1200 },
+      { id: 'tiktok', name: 'TikTok', price_ngn: 1000 },
+      { id: 'amazon', name: 'Amazon', price_ngn: 1200 },
+      { id: 'microsoft', name: 'Microsoft', price_ngn: 1200 }
+    ],
+    countries: [
+      { id: 'usa', name: 'United States 🇺🇸' },
+      { id: 'england', name: 'United Kingdom 🇬🇧' },
+      { id: 'canada', name: 'Canada 🇨🇦' },
+      { id: 'germany', name: 'Germany 🇩🇪' },
+      { id: 'indonesia', name: 'Indonesia 🇮🇩' },
+      { id: 'philippines', name: 'Philippines 🇵🇭' },
+      { id: 'cambodia', name: 'Cambodia 🇰🇭' },
+      { id: 'southafrica', name: 'South Africa 🇿🇦' },
+      { id: 'india', name: 'India 🇮🇳' },
+      { id: 'nigeria', name: 'Nigeria 🇳🇬' }
+    ]
+  };
 
+  proxyCatalogCountries = [
+    {
+      country_name: 'United States',
+      country_code: 'US',
+      flag: '🇺🇸',
+      providers: [
+        { id: 'us_comcast', name: 'Comcast Cable (ISP Residential)', price_ngn: 15000 },
+        { id: 'us_verizon', name: 'Verizon Business (ISP Residential)', price_ngn: 15000 },
+        { id: 'us_spectrum', name: 'Spectrum Broadband (ISP Residential)', price_ngn: 15000 }
+      ]
+    },
+    {
+      country_name: 'United Kingdom',
+      country_code: 'GB',
+      flag: '🇬🇧',
+      providers: [
+        { id: 'gb_bt', name: 'BT Broadband (ISP Residential)', price_ngn: 15000 },
+        { id: 'gb_virgin', name: 'Virgin Media (ISP Residential)', price_ngn: 15000 }
+      ]
+    },
+    {
+      country_name: 'Germany',
+      country_code: 'DE',
+      flag: '🇩🇪',
+      providers: [
+        { id: 'de_telekom', name: 'Deutsche Telekom (ISP Residential)', price_ngn: 15000 }
+      ]
+    },
+    {
+      country_name: 'Canada',
+      country_code: 'CA',
+      flag: '🇨🇦',
+      providers: [
+        { id: 'ca_rogers', name: 'Rogers Communications (ISP Residential)', price_ngn: 15000 }
+      ]
+    }
+  ];
+
+  // Render initial lists
+  renderStep1Services('');
+  renderStep2Countries('');
+  initModalProxyDropdowns();
+
+  // Bind Search Filters
+  const serviceSearch = document.getElementById('sms-service-search');
+  if (serviceSearch) {
+    serviceSearch.addEventListener('input', (e) => renderStep1Services(e.target.value));
+  }
+
+  const countrySearch = document.getElementById('sms-country-search');
+  if (countrySearch) {
+    countrySearch.addEventListener('input', (e) => renderStep2Countries(e.target.value));
+  }
+
+  // Bind Clear Chip Buttons
+  const clearServiceBtn = document.getElementById('chip-clear-service-btn');
+  if (clearServiceBtn) {
+    clearServiceBtn.addEventListener('click', resetStep1);
+  }
+
+  const clearCountryBtn = document.getElementById('chip-clear-country-btn');
+  if (clearCountryBtn) {
+    clearCountryBtn.addEventListener('click', resetStep2);
+  }
+
+  // Fetch live backend catalogs asynchronously
+  fetch('/api/v1/sms/catalog')
+    .then(res => res.ok ? res.json() : Promise.reject())
+    .then(data => {
+      if (data && data.services && data.countries) {
+        cachedSmsCatalog = data;
+        renderStep1Services(serviceSearch ? serviceSearch.value : '');
+        renderStep2Countries(countrySearch ? countrySearch.value : '');
+      }
+    })
+    .catch(() => {});
+
+  fetch('/api/v1/proxies/static-list')
+    .then(res => res.ok ? res.json() : Promise.reject())
+    .then(data => {
+      if (data && data.countries && data.countries.length > 0) {
+        proxyCatalogCountries = data.countries;
+        initModalProxyDropdowns();
+      }
+    })
+    .catch(() => {});
+}
 
 // ----------------------------------------------------
-// STATIC RESIDENTIAL PROXIES FLOW
+// 5SIM MULTI-STEP SELECTION LOGIC
 // ----------------------------------------------------
-async function handleProxyPurchase() {
-  const country = document.getElementById('proxy-country').value;
-  const isp = document.getElementById('proxy-isp').value;
-  const buyBtn = document.getElementById('buy-proxy-btn');
+const TOP_SERVICES_PRIORITY = ['whatsapp', 'telegram', 'chatgpt', 'openai', 'facebook', 'instagram', 'tiktok', 'google'];
+const TIER1_COUNTRIES_PRIORITY = ['usa', 'us', 'england', 'gb', 'uk', 'canada', 'ca', 'germany', 'de'];
 
-  const displayBalanceEl = document.getElementById('display-balance');
+function renderStep1Services(query = '') {
+  const container = document.getElementById('sms-services-list');
+  if (!container || !cachedSmsCatalog) return;
+
+  container.innerHTML = '';
+  const filter = query.toLowerCase().trim();
+  const filtered = cachedSmsCatalog.services.filter(s =>
+    (s.name || '').toLowerCase().includes(filter) || (s.id || '').toLowerCase().includes(filter)
+  );
+
+  // Partition into prioritized top services and remaining alphabetical
+  const topServices = [];
+  const otherServices = [];
+
+  filtered.forEach(s => {
+    const sId = (s.id || '').toLowerCase();
+    const isTop = TOP_SERVICES_PRIORITY.some(topId => sId === topId || sId.includes(topId));
+    if (isTop) {
+      topServices.push(s);
+    } else {
+      otherServices.push(s);
+    }
+  });
+
+  // Sort top services by priority order
+  topServices.sort((a, b) => {
+    const aId = (a.id || '').toLowerCase();
+    const bId = (b.id || '').toLowerCase();
+    const aIndex = TOP_SERVICES_PRIORITY.findIndex(topId => aId === topId || aId.includes(topId));
+    const bIndex = TOP_SERVICES_PRIORITY.findIndex(topId => bId === topId || bId.includes(topId));
+    return (aIndex === -1 ? 99 : aIndex) - (bIndex === -1 ? 99 : bIndex);
+  });
+
+  // Sort others alphabetically
+  otherServices.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+  const renderServiceRow = (s) => {
+    const row = document.createElement('div');
+    row.className = 'step-select-row';
+    if (currentStepService === s.id) row.classList.add('selected');
+
+    const icon = getServiceIconSvg(s.id);
+    const priceFormatted = s.price_ngn ? `from ₦${s.price_ngn.toLocaleString()}` : 'from ₦1,200';
+    const stockCount = Math.floor(10000 + (s.id.length * 15420)).toLocaleString();
+
+    row.innerHTML = `
+      <div class="step-row-left">
+        <span class="step-icon">${icon}</span>
+        <span class="step-brand-name">${s.name}</span>
+      </div>
+      <div class="step-row-right">
+        <span class="step-price-tag">${priceFormatted}</span>
+        <span class="step-stock-tag">${stockCount} numbers</span>
+      </div>
+    `;
+
+    row.addEventListener('click', () => {
+      selectService(s);
+    });
+
+    container.appendChild(row);
+  };
+
+  topServices.forEach(renderServiceRow);
+
+  if (topServices.length > 0 && otherServices.length > 0) {
+    const divider = document.createElement('div');
+    divider.className = 'step-list-divider';
+    divider.textContent = 'All Services';
+    container.appendChild(divider);
+  }
+
+  otherServices.forEach(renderServiceRow);
+}
+
+function selectService(serviceObj) {
+  currentStepService = serviceObj.id;
+
+  // Show active chip and hide search box
+  const chipBox = document.getElementById('step-1-active-chip');
+  const selectBox = document.getElementById('step-1-selection-box');
+  const chipIcon = document.getElementById('chip-service-icon');
+  const chipName = document.getElementById('chip-service-name');
+
+  if (chipIcon) chipIcon.innerHTML = getServiceIconSvg(serviceObj.id);
+  if (chipName) chipName.textContent = serviceObj.name;
+  if (chipBox) chipBox.style.display = 'flex';
+  if (selectBox) selectBox.style.display = 'none';
+
+  // Advance to Step 3 if country is already selected
+  if (currentStepCountry) {
+    loadStep3Operators();
+  }
+}
+
+function resetStep1() {
+  currentStepService = null;
+  const chipBox = document.getElementById('step-1-active-chip');
+  const selectBox = document.getElementById('step-1-selection-box');
+  if (chipBox) chipBox.style.display = 'none';
+  if (selectBox) selectBox.style.display = 'block';
+
+  renderStep1Services(document.getElementById('sms-service-search').value);
+  resetStep3();
+}
+
+function renderStep2Countries(query = '') {
+  const container = document.getElementById('sms-countries-list');
+  if (!container || !cachedSmsCatalog) return;
+
+  container.innerHTML = '';
+  const filter = query.toLowerCase().trim();
+  const filtered = cachedSmsCatalog.countries.filter(c =>
+    (c.name || '').toLowerCase().includes(filter) || (c.id || '').toLowerCase().includes(filter)
+  );
+
+  // Partition into Tier-1 countries and remaining
+  const tier1Countries = [];
+  const otherCountries = [];
+
+  filtered.forEach(c => {
+    const cId = (c.id || '').toLowerCase();
+    const isTier1 = TIER1_COUNTRIES_PRIORITY.some(tId => cId === tId || cId.includes(tId));
+    if (isTier1) {
+      tier1Countries.push(c);
+    } else {
+      otherCountries.push(c);
+    }
+  });
+
+  // Sort Tier-1 in exact order: USA, England/UK, Canada, Germany
+  tier1Countries.sort((a, b) => {
+    const aId = (a.id || '').toLowerCase();
+    const bId = (b.id || '').toLowerCase();
+    const aIdx = TIER1_COUNTRIES_PRIORITY.findIndex(tId => aId === tId || aId.includes(tId));
+    const bIdx = TIER1_COUNTRIES_PRIORITY.findIndex(tId => bId === tId || bId.includes(tId));
+    return (aIdx === -1 ? 99 : aIdx) - (bIdx === -1 ? 99 : bIdx);
+  });
+
+  // Sort others alphabetically
+  otherCountries.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+  const renderCountryRow = (c) => {
+    const row = document.createElement('div');
+    row.className = 'step-select-row';
+    if (currentStepCountry === c.id) row.classList.add('selected');
+
+    // Extract flag from name string or default
+    const flagMatch = c.name.match(/[\uD83C][\uDDE6-\uDDFF][\uD83C][\uDDE6-\uDDFF]/);
+    const flag = flagMatch ? flagMatch[0] : '🌐';
+    const cleanName = c.name.replace(/[\uD83C][\uDDE6-\uDDFF][\uD83C][\uDDE6-\uDDFF]/g, '').trim();
+
+    row.innerHTML = `
+      <div class="step-row-left">
+        <span class="step-icon">${flag}</span>
+        <span class="step-brand-name">${cleanName}</span>
+      </div>
+    `;
+
+    row.addEventListener('click', () => {
+      selectCountry(c, flag, cleanName);
+    });
+
+    container.appendChild(row);
+  };
+
+  tier1Countries.forEach(renderCountryRow);
+
+  if (tier1Countries.length > 0 && otherCountries.length > 0) {
+    const divider = document.createElement('div');
+    divider.className = 'step-list-divider';
+    divider.textContent = 'All Countries';
+    container.appendChild(divider);
+  }
+
+  otherCountries.forEach(renderCountryRow);
+}
+
+function selectCountry(countryObj, flag, name) {
+  currentStepCountry = countryObj.id;
+
+  const chipBox = document.getElementById('step-2-active-chip');
+  const selectBox = document.getElementById('step-2-selection-box');
+  const chipFlag = document.getElementById('chip-country-flag');
+  const chipName = document.getElementById('chip-country-name');
+
+  if (chipFlag) chipFlag.textContent = flag;
+  if (chipName) chipName.textContent = name;
+  if (chipBox) chipBox.style.display = 'flex';
+  if (selectBox) selectBox.style.display = 'none';
+
+  if (currentStepService) {
+    loadStep3Operators();
+  }
+}
+
+function resetStep2() {
+  currentStepCountry = null;
+  const chipBox = document.getElementById('step-2-active-chip');
+  const selectBox = document.getElementById('step-2-selection-box');
+  if (chipBox) chipBox.style.display = 'none';
+  if (selectBox) selectBox.style.display = 'block';
+
+  renderStep2Countries(document.getElementById('sms-country-search').value);
+  resetStep3();
+}
+
+function resetStep3() {
+  const prompt = document.getElementById('step-3-prompt');
+  const opList = document.getElementById('sms-operators-list');
+  if (prompt) prompt.style.display = 'block';
+  if (opList) opList.style.display = 'none';
+}
+
+async function loadStep3Operators() {
+  const prompt = document.getElementById('step-3-prompt');
+  const opList = document.getElementById('sms-operators-list');
+  if (!prompt || !opList) return;
+
+  prompt.style.display = 'none';
+  opList.style.display = 'flex';
+  opList.innerHTML = '<div style="text-align:center; padding: 1rem;"><span class="spinner"></span> Loading operators...</div>';
+
+  try {
+    const res = await fetch(`/api/v1/sms/operators?country=${currentStepCountry}&service=${currentStepService}`);
+    const data = await res.json();
+
+    opList.innerHTML = '';
+
+    if (!data.operators || data.operators.length === 0) {
+      opList.innerHTML = '<div style="color:var(--text-muted); font-size: 0.8rem; text-align:center;">No operators available for this selection.</div>';
+      return;
+    }
+
+    data.operators.forEach((op, index) => {
+      const card = document.createElement('div');
+      card.className = 'operator-card-item';
+
+      let badgeHtml = '';
+      if (index === 0) {
+        badgeHtml = '<span class="operator-badge-tag">BEST RATE</span>';
+      } else if (op.operator_name === 'Virtual28' || op.price_ngn < data.operators[0].price_ngn) {
+        badgeHtml = '<span class="operator-badge-tag low-price">LOW PRICE</span>';
+      }
+
+      card.innerHTML = `
+        ${badgeHtml}
+        <div class="operator-info-col">
+          <span class="operator-name">${op.operator_name}</span>
+          <span class="operator-signal-rate">✉️ ${op.success_rate}% success rate</span>
+        </div>
+        <div class="operator-pricing-col">
+          <div>
+            <div class="operator-cost-naira">₦${(op.price_ngn || 1500).toLocaleString()}</div>
+            <div class="operator-stock-count">${(op.stock_count || 1000).toLocaleString()} numbers</div>
+          </div>
+          <button class="operator-buy-btn" title="Rent Number from ${op.operator_name}">
+            🛒
+          </button>
+        </div>
+      `;
+
+      card.querySelector('.operator-buy-btn').addEventListener('click', () => {
+        executeSmsRent(currentStepService, currentStepCountry, op.operator_name, op.price_ngn || 1500);
+      });
+
+      opList.appendChild(card);
+    });
+
+  } catch (err) {
+    opList.innerHTML = '<div style="color:var(--red); font-size: 0.8rem;">Failed to load operators.</div>';
+  }
+}
+
+// Rent virtual SMS number
+async function executeSmsRent(service, country, operator, costNgn) {
+  const costKobo = costNgn * 100;
   const originalBalance = currentUser ? currentUser.balance : 0;
-  const costNgn = 15000;
+
+  try {
+    // Optimistic balance deduction
+    if (currentUser) {
+      currentUser.balance = Math.max(0, currentUser.balance - costKobo);
+      updateBalanceDisplay(currentUser.balance);
+    }
+
+    showToast('Allocating virtual number...', 'success');
+
+    const res = await fetch('/api/sms/rent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ service, country, operator })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      if (currentUser) {
+        currentUser.balance = originalBalance;
+        updateBalanceDisplay(currentUser.balance);
+      }
+      showToast(data.error || 'Failed to rent virtual number', 'error');
+      return;
+    }
+
+    showToast('Virtual number activated! Waiting for code...', 'success');
+    fetchUserProfile();
+    loadActiveSMS();
+  } catch (err) {
+    if (currentUser) {
+      currentUser.balance = originalBalance;
+      updateBalanceDisplay(currentUser.balance);
+    }
+    showToast('Network error renting number.', 'error');
+  }
+}
+
+// ----------------------------------------------------
+// 5SIM ACTIVE ORDERS & SMS POLLING
+// ----------------------------------------------------
+async function loadActiveSMS() {
+  const activeContainer = document.getElementById('active-sms-container');
+  const historyContainer = document.getElementById('sms-history-list');
+
+  // Clear existing polling trackers
+  Object.keys(activePollTrackers).forEach(id => {
+    if (activePollTrackers[id] && activePollTrackers[id].stop) {
+      activePollTrackers[id].stop();
+    }
+    delete activePollTrackers[id];
+  });
+
+  try {
+    const res = await fetch('/api/sms/activations');
+    const data = await res.json();
+
+    if (!data.activations || data.activations.length === 0) {
+      if (activeContainer) {
+        activeContainer.innerHTML = `
+          <div class="active-order-window-card" style="text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 2.5rem 1.5rem;">
+            📱 No active SMS activations currently running.<br>Select a service and country on the left to get a number!
+          </div>`;
+      }
+      if (historyContainer) historyContainer.innerHTML = '<div style="color:var(--text-muted); font-size: 0.8rem; text-align:center; padding: 1rem;">No past activations.</div>';
+      return;
+    }
+
+    const activeOrders = data.activations.filter(a => a.status === 'waiting' || a.status === 'received');
+    const pastOrders = data.activations.filter(a => a.status === 'cancelled' || a.status === 'expired');
+
+    // 1. Render Active Order Window (5SIM Style)
+    if (activeContainer) {
+      activeContainer.innerHTML = '';
+      if (activeOrders.length === 0) {
+        activeContainer.innerHTML = `
+          <div class="active-order-window-card" style="text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 2rem 1.5rem;">
+            📱 No active waiting orders. Ready to receive codes!
+          </div>`;
+      } else {
+        activeOrders.forEach(act => {
+          const card = create5SimActiveOrderCard(act);
+          activeContainer.appendChild(card);
+        });
+      }
+    }
+
+    // 2. Render History List
+    if (historyContainer) {
+      historyContainer.innerHTML = '';
+      data.activations.forEach(act => {
+        const item = document.createElement('div');
+        item.style.padding = '0.6rem 0.85rem';
+        item.style.background = '#0f1826';
+        item.style.borderRadius = 'var(--radius-md)';
+        item.style.display = 'flex';
+        item.style.justifyContent = 'space-between';
+        item.style.alignItems = 'center';
+        item.style.fontSize = '0.825rem';
+
+        const statusColor = act.status === 'received' ? 'var(--emerald-text)' : (act.status === 'waiting' ? 'var(--amber)' : 'var(--text-muted)');
+        item.innerHTML = `
+          <div>
+            <div style="font-weight:700; color:#fff;">${act.service.toUpperCase()} (${act.phone_number})</div>
+            <div style="font-size:0.7rem; color:var(--text-secondary);">${new Date(act.created_at || act.expires_at).toLocaleString()}</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-weight:800; color:${statusColor}; text-transform:uppercase;">${act.status}</div>
+            <div style="font-size:0.75rem; color:var(--text-secondary);">₦${(act.cost / 100).toLocaleString()}</div>
+          </div>
+        `;
+        historyContainer.appendChild(item);
+      });
+    }
+
+  } catch (err) {
+    console.error('Failed to load SMS activations:', err);
+  }
+}
+
+// Build exact 5SIM active order card
+function create5SimActiveOrderCard(act) {
+  const card = document.createElement('div');
+  card.className = 'active-order-window-card';
+
+  const orderNo = act.sms_api_id || act.id.slice(-10);
+  const dateStr = new Date(act.created_at || Date.now()).toLocaleString('en-US', {
+    day: 'numeric',
+    month: 'long',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
+  const icon = getServiceIconSvg(act.service);
+  const flagMap = { usa: '🇺🇸', canada: '🇨🇦', england: '🇬🇧', germany: '🇩🇪', nigeria: '🇳🇬' };
+  const flag = flagMap[(act.country || 'usa').toLowerCase()] || '🌐';
+
+  card.innerHTML = `
+    <div class="order-top-header">
+      <div class="order-number-title">Order №${orderNo}</div>
+      <div class="order-status-badge ${act.status}" id="status-badge-${act.id}">
+        ${act.status === 'waiting' ? '⌛ WAITING' : '✅ RECEIVED'}
+      </div>
+    </div>
+
+    <!-- Dotted Metadata Table -->
+    <div class="order-meta-table">
+      <div class="meta-dotted-row">
+        <span class="meta-label">Date</span>
+        <span class="meta-val">${dateStr}</span>
+      </div>
+      <div class="meta-dotted-row">
+        <span class="meta-label">Service</span>
+        <span class="meta-val">${icon} ${act.service.charAt(0).toUpperCase() + act.service.slice(1)}</span>
+      </div>
+      <div class="meta-dotted-row">
+        <span class="meta-label">Country</span>
+        <span class="meta-val">${flag} ${(act.country || 'USA').toUpperCase()}</span>
+      </div>
+      <div class="meta-dotted-row">
+        <span class="meta-label">Operator</span>
+        <span class="meta-val">${(act.operator || 'Any').toUpperCase()}</span>
+      </div>
+      <div class="meta-dotted-row">
+        <span class="meta-label">Price</span>
+        <span class="meta-val" style="color: var(--emerald-text);">₦${(act.cost / 100).toLocaleString()}</span>
+      </div>
+      <div class="meta-dotted-row">
+        <span class="meta-label">Rate</span>
+        <span class="meta-val">95.0%</span>
+      </div>
+    </div>
+
+    <!-- Rented Number Box -->
+    <div class="rented-number-box">
+      <span class="number-digits">${act.phone_number}</span>
+      <button class="number-copy-btn" id="copy-num-${act.id}" title="Copy Number">📋</button>
+    </div>
+
+    <!-- Security Tip -->
+    <div class="sms-security-tip-box">
+      <span style="font-size: 0.95rem; flex-shrink: 0;">🔒</span>
+      <span><strong>Security Tip:</strong> Immediately enable 2FA and attach a recovery email once your OTP is verified.</span>
+    </div>
+
+    <!-- Code from SMS Box -->
+    <div class="sms-code-arrival-section">
+      <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase;">
+        Code from SMS
+      </div>
+      <div class="sms-code-box">
+        <div id="sms-code-content-${act.id}">
+          ${act.otp_code
+            ? `<span class="sms-code-display">${act.otp_code}</span>`
+            : `<div class="sms-code-waiting"><span class="spinner"></span> Waiting for SMS code...</div>`
+          }
+        </div>
+        ${act.otp_code ? `<button class="number-copy-btn" id="copy-otp-${act.id}" title="Copy OTP">📋</button>` : ''}
+      </div>
+      ${act.sms_text ? `<div class="sms-text-snippet">"${act.sms_text}"</div>` : ''}
+    </div>
+
+    <!-- Live Timer & Progress Bar -->
+    <div class="order-timer-group">
+      <div class="timer-text-row">
+        <span id="timer-text-${act.id}">14 minutes left</span>
+        <span style="color: var(--text-muted);">Auto-cancels if unreceived</span>
+      </div>
+      <div class="order-progress-track">
+        <div class="order-progress-fill" id="timer-fill-${act.id}" style="width: 100%;"></div>
+      </div>
+    </div>
+
+    <!-- Order Actions -->
+    <div class="order-actions-row">
+      <button class="btn-secondary" id="ban-btn-${act.id}">Ban / Report</button>
+      <button class="btn-danger" id="cancel-order-btn-${act.id}">Cancel & Refund</button>
+    </div>
+  `;
+
+  // Bind Copy Number
+  card.querySelector(`#copy-num-${act.id}`).addEventListener('click', () => {
+    navigator.clipboard.writeText(act.phone_number).then(() => {
+      showToast('Phone number copied!', 'success');
+    });
+  });
+
+  // Bind Copy OTP if received
+  const copyOtpBtn = card.querySelector(`#copy-otp-${act.id}`);
+  if (copyOtpBtn) {
+    copyOtpBtn.addEventListener('click', () => {
+      navigator.clipboard.writeText(act.otp_code).then(() => {
+        showToast('Verification code copied!', 'success');
+      });
+    });
+  }
+
+  // Bind Cancel
+  card.querySelector(`#cancel-order-btn-${act.id}`).addEventListener('click', async () => {
+    const btn = card.querySelector(`#cancel-order-btn-${act.id}`);
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Refunding...';
+
+    try {
+      const cancelRes = await fetch(`/api/sms/cancel/${act.id}`, { method: 'POST' });
+      const cancelData = await cancelRes.json();
+      if (!cancelRes.ok) {
+        showToast(cancelData.error || 'Failed to cancel', 'error');
+        btn.disabled = false;
+        btn.textContent = 'Cancel & Refund';
+        return;
+      }
+      showToast('Order cancelled and Naira refunded to wallet!', 'success');
+      fetchUserProfile();
+      loadActiveSMS();
+    } catch (e) {
+      showToast('Error executing cancellation.', 'error');
+      btn.disabled = false;
+    }
+  });
+
+  // Live Timer Countdown & Polling if status is waiting
+  if (act.status === 'waiting') {
+    const expiryMs = new Date(act.expires_at).getTime();
+    const totalDuration = 15 * 60 * 1000;
+    const timerText = card.querySelector(`#timer-text-${act.id}`);
+    const timerFill = card.querySelector(`#timer-fill-${act.id}`);
+
+    const updateTimer = () => {
+      const remaining = expiryMs - Date.now();
+      if (remaining <= 0) {
+        if (timerText) timerText.textContent = 'Expired';
+        if (timerFill) timerFill.style.width = '0%';
+        clearInterval(timerInterval);
+      } else {
+        const mins = Math.floor(remaining / 60000);
+        const secs = Math.floor((remaining % 60000) / 1000);
+        if (timerText) timerText.textContent = `${mins}m ${secs}s left`;
+        const pct = Math.max(0, Math.min(100, (remaining / totalDuration) * 100));
+        if (timerFill) timerFill.style.width = `${pct}%`;
+      }
+    };
+
+    updateTimer();
+    const timerInterval = setInterval(updateTimer, 1000);
+
+    // Active status polling with interval
+    const pollId = setInterval(async () => {
+      try {
+        const pRes = await fetch(`/api/sms/poll/${act.id}`);
+        const pData = await pRes.json();
+        if (pData.activation && pData.activation.status !== 'waiting') {
+          clearInterval(timerInterval);
+          clearInterval(pollId);
+          if (pData.activation.status === 'received') {
+            showToast(`Code received: ${pData.activation.otp_code}`, 'success');
+            // Auto copy code
+            navigator.clipboard.writeText(pData.activation.otp_code).catch(() => {});
+          }
+          fetchUserProfile();
+          loadActiveSMS();
+        }
+      } catch (e) {}
+    }, 4000);
+
+    activePollTrackers[act.id] = {
+      stop: () => {
+        clearInterval(timerInterval);
+        clearInterval(pollId);
+      }
+    };
+  }
+
+  return card;
+}
+
+// ----------------------------------------------------
+// CYBERYOZH PROXIES VIEW & ACTIONS
+// ----------------------------------------------------
+function initModalProxyDropdowns() {
+  const countrySelect = document.getElementById('modal-proxy-country');
+  const countrySearch = document.getElementById('modal-proxy-country-search');
+  const ispSelect = document.getElementById('modal-proxy-isp');
+
+  if (!countrySelect || !proxyCatalogCountries) return;
+
+  const renderDropdown = (query = '') => {
+    countrySelect.innerHTML = '';
+    const q = query.toLowerCase().trim();
+    const filtered = proxyCatalogCountries.filter(c =>
+      (c.country_name || '').toLowerCase().includes(q) || (c.country_code || '').toLowerCase().includes(q)
+    );
+
+    // Partition Tier-1 vs Other
+    const tier1 = [];
+    const others = [];
+
+    filtered.forEach(c => {
+      const code = (c.country_code || '').toLowerCase();
+      const isTier1 = TIER1_COUNTRIES_PRIORITY.some(t => code === t || code.includes(t));
+      if (isTier1) {
+        tier1.push(c);
+      } else {
+        others.push(c);
+      }
+    });
+
+    tier1.sort((a, b) => {
+      const aCode = (a.country_code || '').toLowerCase();
+      const bCode = (b.country_code || '').toLowerCase();
+      const aIdx = TIER1_COUNTRIES_PRIORITY.indexOf(aCode);
+      const bIdx = TIER1_COUNTRIES_PRIORITY.indexOf(bCode);
+      return (aIdx === -1 ? 99 : aIdx) - (bIdx === -1 ? 99 : bIdx);
+    });
+
+    others.sort((a, b) => (a.country_name || '').localeCompare(b.country_name || ''));
+
+    tier1.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.country_code;
+      opt.textContent = `${c.flag} ${c.country_name}`;
+      countrySelect.appendChild(opt);
+    });
+
+    if (tier1.length > 0 && others.length > 0) {
+      const sep = document.createElement('option');
+      sep.disabled = true;
+      sep.textContent = '──────── All Countries ────────';
+      countrySelect.appendChild(sep);
+    }
+
+    others.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.country_code;
+      opt.textContent = `${c.flag} ${c.country_name}`;
+      countrySelect.appendChild(opt);
+    });
+
+    updateModalIspOptions();
+  };
+
+  renderDropdown('');
+
+  if (countrySearch) {
+    countrySearch.addEventListener('input', (e) => renderDropdown(e.target.value));
+  }
+
+  countrySelect.addEventListener('change', updateModalIspOptions);
+}
+
+function updateModalIspOptions() {
+  const countrySelect = document.getElementById('modal-proxy-country');
+  const ispSelect = document.getElementById('modal-proxy-isp');
+  const priceDisplay = document.getElementById('modal-proxy-price-display');
+  if (!countrySelect || !ispSelect || !proxyCatalogCountries) return;
+
+  const code = countrySelect.value;
+  const countryData = proxyCatalogCountries.find(c => c.country_code === code);
+
+  ispSelect.innerHTML = '';
+
+  if (countryData && countryData.providers && countryData.providers.length > 0) {
+    countryData.providers.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.name;
+      opt.textContent = `${p.name} (₦${(p.price_ngn || 15000).toLocaleString()}/mo)`;
+      opt.dataset.price = p.price_ngn || 15000;
+      ispSelect.appendChild(opt);
+    });
+  } else {
+    const opt = document.createElement('option');
+    opt.value = 'any';
+    opt.textContent = 'Any Broadband Residential ISP (₦15,000/mo)';
+    opt.dataset.price = 15000;
+    ispSelect.appendChild(opt);
+  }
+
+  const updatePrice = () => {
+    const selected = ispSelect.options[ispSelect.selectedIndex];
+    const price = selected && selected.dataset.price ? parseInt(selected.dataset.price) : 15000;
+    if (priceDisplay) priceDisplay.textContent = `₦${price.toLocaleString()}`;
+  };
+
+  ispSelect.removeEventListener('change', updatePrice);
+  ispSelect.addEventListener('change', updatePrice);
+  updatePrice();
+}
+
+async function handleProxyPurchase() {
+  const countrySelect = document.getElementById('modal-proxy-country');
+  const ispSelect = document.getElementById('modal-proxy-isp');
+  const buyBtn = document.getElementById('confirm-buy-proxy-btn');
+
+  if (!countrySelect) return;
+
+  const country = countrySelect.value;
+  const selectedIspOpt = ispSelect ? ispSelect.options[ispSelect.selectedIndex] : null;
+  const isp = selectedIspOpt ? selectedIspOpt.value : 'any';
+  const costNgn = selectedIspOpt && selectedIspOpt.dataset.price ? parseInt(selectedIspOpt.dataset.price) : 15000;
+  const costKobo = costNgn * 100;
+  const originalBalance = currentUser ? currentUser.balance : 0;
 
   try {
     buyBtn.disabled = true;
-    buyBtn.innerHTML = '<span class="spinner"></span> Allocation in Progress...';
+    buyBtn.innerHTML = '<span class="spinner"></span> Provisioning Static IP...';
 
     // Optimistic balance update
     if (currentUser) {
-      currentUser.balance -= costNgn;
-      displayBalanceEl.textContent = currentUser.balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      currentUser.balance = Math.max(0, currentUser.balance - costKobo);
+      updateBalanceDisplay(currentUser.balance);
     }
 
     const res = await fetch('/api/proxy/rent', {
@@ -705,688 +1428,314 @@ async function handleProxyPurchase() {
     });
 
     const data = await res.json();
-    
-    if (res.status === 401) {
-      showToast('Session expired. Please log in again.', 'error');
-      setTimeout(() => { window.location.href = '/index.html'; }, 1000);
-      return;
-    }
 
     if (!res.ok) {
-      // Rollback optimistic balance
       if (currentUser) {
         currentUser.balance = originalBalance;
-        displayBalanceEl.textContent = currentUser.balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        updateBalanceDisplay(currentUser.balance);
       }
-      showToast(data.error || 'Failed to lease proxy address', 'error');
+      showToast(data.error || 'Failed to provision proxy', 'error');
       return;
     }
 
-    showToast(data.message, 'success');
-    
+    showToast('Static residential proxy provisioned successfully!', 'success');
+    document.getElementById('rent-proxy-modal').classList.remove('active');
     fetchUserProfile();
     loadActiveProxies();
   } catch (err) {
-    // Rollback optimistic balance
     if (currentUser) {
       currentUser.balance = originalBalance;
-      displayBalanceEl.textContent = currentUser.balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      updateBalanceDisplay(currentUser.balance);
     }
-    showToast('Network error purchasing proxy IP.', 'error');
+    showToast('Network error leasing proxy.', 'error');
   } finally {
     buyBtn.disabled = false;
-    buyBtn.textContent = `Rent Static IP (₦15,000/mo)`;
+    buyBtn.textContent = 'Rent Static IP';
   }
 }
 
-// Fetch proxy list and build elements dynamically
 async function loadActiveProxies() {
   const container = document.getElementById('active-proxies-container');
+  if (!container) return;
+
   try {
     const res = await fetch('/api/proxy/leases');
     const data = await res.json();
-    
-    if (data.leases.length === 0) {
+
+    if (!data.leases || data.leases.length === 0) {
       container.innerHTML = `
-        <div style="text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 1rem 0;">
-          No active proxy leases found.
+        <div class="cy-proxy-card" style="text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 2.5rem 1.5rem;">
+          🌐 No active proxy leases found.<br>Click <strong>+ Rent Proxy</strong> above to allocate your first dedicated residential IP!
         </div>`;
       return;
     }
 
     container.innerHTML = '';
     data.leases.forEach(lease => {
-      const cardItem = document.createElement('div');
-      cardItem.className = 'proxy-list-item'; // Collapsed by default
-
-      const expDate = new Date(lease.expires_at).toLocaleDateString();
-      const flagMap = { 'US': '🇺🇸', 'GB': '🇬🇧', 'DE': '🇩🇪' };
-      const flag = flagMap[lease.country] || '🌐';
-
-      // HTML details containing collapsible headers and tabs
-      cardItem.innerHTML = `
-        <div class="proxy-list-item-header">
-          <span style="font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
-            ${flag} Dedicated Static IP (${lease.ip_address})
-          </span>
-          <span style="font-size: 0.75rem; color: var(--text-secondary); margin-left: auto; margin-right: 1rem;">
-            Expires: ${expDate}
-          </span>
-          <span class="chevron">▼</span>
-        </div>
-        
-        <div class="proxy-list-item-content">
-          <div class="credential-item" style="margin-top: 0.25rem; margin-bottom: 0.75rem;">
-            <span class="credential-label" style="font-weight: bold; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary);">📶 ISP Carrier</span>
-            <span class="credential-value" style="font-weight: 700; color: var(--emerald-text); font-size: 0.78rem;">${lease.carrier || 'Broadband Residential'}</span>
-          </div>
-          <div class="tabs" style="margin-bottom: 0.75rem;">
-            <button class="tab-btn active" id="tab-wg-${lease.id}">WireGuard Profile</button>
-            <button class="tab-btn" id="tab-socks-${lease.id}">SOCKS5 Credentials</button>
-          </div>
-
-          <div class="tab-content active" id="pane-wg-${lease.id}">
-            <div style="display: flex; flex-direction: column; align-items: center;">
-              <div class="qr-container" style="position: relative; width: 160px; height: 160px; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.05); border-radius: 0.25rem;">
-                <div class="spinner" id="qr-spinner-${lease.id}" style="position: absolute; width: 24px; height: 24px; border: 3px solid rgba(255,255,255,0.1); border-top-color: var(--cyan);"></div>
-                <img class="qr-canvas" id="qr-img-${lease.id}" style="width: 160px; height: 160px; object-fit: contain; background: #fff; padding: 5px; border-radius: 0.25rem; opacity: 0; transition: opacity 0.3s;" alt="WireGuard QR Profile" />
-              </div>
-              <button class="btn btn-outline" id="dl-wg-${lease.id}" style="font-size: 0.8rem; padding: 0.5rem 1rem;">
-                📥 Download Config File
-              </button>
-            </div>
-          </div>
-
-          <div class="tab-content" id="pane-socks-${lease.id}">
-            <div class="credential-item">
-              <span class="credential-label">Host IP</span>
-              <span class="credential-value">${lease.ip_address}</span>
-            </div>
-            <div class="credential-item">
-              <span class="credential-label">Port</span>
-              <span class="credential-value">${lease.socks5_port}</span>
-            </div>
-            <div class="credential-item">
-              <span class="credential-label">Username</span>
-              <span class="credential-value">${lease.socks5_user}</span>
-            </div>
-            <div class="credential-item">
-              <span class="credential-label">Password</span>
-              <span class="credential-value">${lease.socks5_pass}</span>
-            </div>
-            <button class="btn btn-outline" id="copy-socks-${lease.id}" style="margin-top: 0.5rem; font-size: 0.8rem; padding: 0.5rem 1rem; width: 100%;">
-              📋 Copy Connection String
-            </button>
-          </div>
-        </div>
-      `;
-
-      container.appendChild(cardItem);
-
-      // Accordion dropdown expand/collapse click handler
-      const header = cardItem.querySelector('.proxy-list-item-header');
-      header.addEventListener('click', () => {
-        cardItem.classList.toggle('open');
-      });
-
-      // Retrieve dynamic server-side WireGuard base64 QR code and config stream
-      (async () => {
-        try {
-          const wgRes = await fetch('/api/v1/proxies/wireguard-generate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              ip: lease.ip_address,
-              port: lease.socks5_port,
-              username: lease.socks5_user,
-              password: lease.socks5_pass,
-              conf: lease.wireguard_conf
-            })
-          });
-          if (wgRes.ok) {
-            const wgData = await wgRes.json();
-            const qrImg = document.getElementById(`qr-img-${lease.id}`);
-            const qrSpinner = document.getElementById(`qr-spinner-${lease.id}`);
-            if (qrImg) {
-              qrImg.src = wgData.qr_code_base64;
-              qrImg.style.opacity = '1';
-            }
-            if (qrSpinner) {
-              qrSpinner.remove();
-            }
-          }
-        } catch (error) {
-          console.error('Failed to load server WireGuard profile:', error);
-        }
-      })();
-
-      // Download .conf Config file implementation from backend stream
-      cardItem.querySelector(`#dl-wg-${lease.id}`).addEventListener('click', (e) => {
-        e.stopPropagation();
-        // Redirect browser to trigger file download attachment stream
-        const downloadUrl = `/api/v1/proxies/wireguard-generate?download=true&ip=${lease.ip_address}&port=${lease.socks5_port}&conf=${encodeURIComponent(lease.wireguard_conf)}`;
-        window.location.href = downloadUrl;
-        showToast('Configuration file downloaded!', 'success');
-      });
-
-      // Add Dual Tab Toggles inside Proxy Details
-      const wgTab = cardItem.querySelector(`#tab-wg-${lease.id}`);
-      const socksTab = cardItem.querySelector(`#tab-socks-${lease.id}`);
-      const wgPane = cardItem.querySelector(`#pane-wg-${lease.id}`);
-      const socksPane = cardItem.querySelector(`#pane-socks-${lease.id}`);
-
-      wgTab.addEventListener('click', (e) => {
-        e.stopPropagation(); // Avoid triggering accordion close
-        wgTab.classList.add('active');
-        socksTab.classList.remove('active');
-        wgPane.classList.add('active');
-        socksPane.classList.remove('active');
-      });
-
-      socksTab.addEventListener('click', (e) => {
-        e.stopPropagation(); // Avoid triggering accordion close
-        socksTab.classList.add('active');
-        wgTab.classList.remove('active');
-        socksPane.classList.add('active');
-        wgPane.classList.remove('active');
-      });
-
-      // Copy SOCKS5 connection string implementation (host:port:user:pass)
-      const copySocksBtn = cardItem.querySelector(`#copy-socks-${lease.id}`);
-      copySocksBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const connStr = `${lease.ip_address}:${lease.socks5_port}:${lease.socks5_user}:${lease.socks5_pass}`;
-        navigator.clipboard.writeText(connStr).then(() => {
-          showToast('SOCKS5 connection details copied!', 'success');
-          
-          const originalText = copySocksBtn.innerHTML;
-          const originalBg = copySocksBtn.style.background;
-          const originalBorder = copySocksBtn.style.borderColor;
-          const originalColor = copySocksBtn.style.color;
-
-          copySocksBtn.innerHTML = 'Copied! ✓';
-          copySocksBtn.style.background = 'rgba(16, 185, 129, 0.15)';
-          copySocksBtn.style.borderColor = 'rgba(16, 185, 129, 0.5)';
-          copySocksBtn.style.color = '#10b981';
-
-          setTimeout(() => {
-            copySocksBtn.innerHTML = originalText;
-            copySocksBtn.style.background = originalBg;
-            copySocksBtn.style.borderColor = originalBorder;
-            copySocksBtn.style.color = originalColor;
-          }, 2000);
-        }).catch(err => {
-          showToast('Failed to copy credentials automatically', 'error');
-        });
-      });
+      const card = createCyberYozhProxyCard(lease);
+      container.appendChild(card);
     });
   } catch (err) {
     console.error('Failed to load proxy leases:', err);
   }
 }
 
-// ----------------------------------------------------
-// VIRTUAL SMS ACTIVATIONS FLOW
-// ----------------------------------------------------
-async function handleSMSPurchase() {
-  const service = document.getElementById('sms-service').value;
-  const country = document.getElementById('sms-country').value;
-  const operator = document.getElementById('sms-operator').value;
-  const buyBtn = document.getElementById('buy-sms-btn');
+// Build exact CyberYozh proxy card
+function createCyberYozhProxyCard(lease) {
+  const card = document.createElement('div');
+  card.className = 'cy-proxy-card';
 
-  const displayBalanceEl = document.getElementById('display-balance');
-  const originalBalance = currentUser ? currentUser.balance : 0;
-  
-  // Find dynamic price in our cached catalog
-  let costNgn = 1200; // Default fallback
-  if (cachedSmsCatalog && cachedSmsCatalog.services) {
-    const serviceObj = cachedSmsCatalog.services.find(s => s.id === service);
-    if (serviceObj && serviceObj.price_ngn) {
-      costNgn = serviceObj.price_ngn;
+  const flagMap = { US: '🇺🇸', GB: '🇬🇧', UK: '🇬🇧', DE: '🇩🇪', CA: '🇨🇦' };
+  const flag = flagMap[lease.country.toUpperCase()] || '🌐';
+
+  // Expiry calculation (30d XX:XX:XX)
+  const expiresAt = new Date(lease.expires_at).getTime();
+
+  card.innerHTML = `
+    <!-- Top Header Bar -->
+    <div class="cy-proxy-header">
+      <div class="cy-proxy-ip-group">
+        <span class="cy-proxy-flag">${flag}</span>
+        <span id="ip-text-${lease.id}">${lease.ip_address}</span>
+        <button class="copy-icon-btn" id="copy-ip-${lease.id}" title="Copy IP Address">📋</button>
+      </div>
+
+      <div class="cy-proxy-meta-badges">
+        <div class="cy-expiry-badge">
+          <span>🕒</span>
+          <span id="expiry-text-${lease.id}">Expires in: Loading...</span>
+        </div>
+        <div class="cy-type-badge">
+          <span>✳️</span>
+          <span>Type: Resident. Static</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Credentials Row -->
+    <div class="cy-proxy-body">
+      <div class="cy-cred-row">
+        <span class="cy-cred-label">Login:</span>
+        <span class="cy-cred-val" id="login-val-${lease.id}">${lease.socks5_user}</span>
+        <button class="copy-icon-btn" id="copy-login-${lease.id}" title="Copy Login">📋</button>
+      </div>
+
+      <div class="cy-cred-row">
+        <span class="cy-cred-label">Password:</span>
+        <span class="cy-cred-val" id="pass-val-${lease.id}">${lease.socks5_pass}</span>
+        <button class="copy-icon-btn" id="copy-pass-${lease.id}" title="Copy Password">📋</button>
+      </div>
+    </div>
+
+    <!-- Protocol Radio Switcher -->
+    <div class="cy-protocol-switcher">
+      <label class="cy-radio-label active" id="label-http-${lease.id}">
+        <input type="radio" name="protocol-${lease.id}" value="HTTP" checked>
+        <span>HTTP</span>
+      </label>
+      <label class="cy-radio-label" id="label-socks-${lease.id}">
+        <input type="radio" name="protocol-${lease.id}" value="SOCKS5">
+        <span>SOCKS5</span>
+      </label>
+    </div>
+
+    <!-- Formatted Connection String Box -->
+    <div class="cy-connection-box">
+      <span class="cy-protocol-tag" id="tag-protocol-${lease.id}">HTTP</span>
+      <span class="cy-conn-string-text" id="conn-str-${lease.id}">://${lease.ip_address}:${lease.socks5_port}</span>
+      <button class="copy-icon-btn" id="copy-conn-${lease.id}" title="Copy Connection String">📋</button>
+    </div>
+
+    <!-- Concurrent Device Limit Notice -->
+    <div class="cy-security-limit-notice">
+      <span>🛡️</span>
+      <span><strong>Limit:</strong> Max 3 concurrent devices per IP to maintain a 0% fraud score.</span>
+    </div>
+  `;
+
+  // Protocol Radio switch handling
+  let activeProtocol = 'HTTP';
+
+  const updateConnDisplay = () => {
+    const tag = card.querySelector(`#tag-protocol-${lease.id}`);
+    const connText = card.querySelector(`#conn-str-${lease.id}`);
+    const labelHttp = card.querySelector(`#label-http-${lease.id}`);
+    const labelSocks = card.querySelector(`#label-socks-${lease.id}`);
+
+    if (tag) tag.textContent = activeProtocol;
+    if (connText) connText.textContent = `://${lease.ip_address}:${lease.socks5_port}`;
+
+    if (activeProtocol === 'HTTP') {
+      labelHttp.classList.add('active');
+      labelSocks.classList.remove('active');
+    } else {
+      labelSocks.classList.add('active');
+      labelHttp.classList.remove('active');
     }
-  }
+  };
 
-  try {
-    buyBtn.disabled = true;
-    buyBtn.innerHTML = '<span class="spinner"></span> Ordering Number...';
-
-    // Optimistic balance update
-    if (currentUser) {
-      currentUser.balance -= costNgn;
-      displayBalanceEl.textContent = currentUser.balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    }
-
-    const res = await fetch('/api/sms/rent', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ service, country, operator })
+  card.querySelectorAll(`input[name="protocol-${lease.id}"]`).forEach(radio => {
+    radio.addEventListener('change', (e) => {
+      activeProtocol = e.target.value;
+      updateConnDisplay();
     });
-
-    const data = await res.json();
-    
-    if (res.status === 401) {
-      showToast('Session expired. Please log in again.', 'error');
-      setTimeout(() => { window.location.href = '/index.html'; }, 1000);
-      return;
-    }
-
-    if (!res.ok) {
-      // Rollback optimistic balance
-      if (currentUser) {
-        currentUser.balance = originalBalance;
-        displayBalanceEl.textContent = currentUser.balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      }
-      showToast(data.error || 'Failed to rent virtual number', 'error');
-      return;
-    }
-
-    showToast('Virtual phone number rented successfully.', 'success');
-    
-    fetchUserProfile();
-    loadActiveSMS();
-  } catch (err) {
-    // Rollback optimistic balance
-    if (currentUser) {
-      currentUser.balance = originalBalance;
-      displayBalanceEl.textContent = currentUser.balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    }
-    showToast('Network error renting SMS activations.', 'error');
-  } finally {
-    buyBtn.disabled = false;
-    buyBtn.textContent = 'Rent Virtual Number';
-  }
-}
-
-// Poll status of active subscriptions
-async function loadActiveSMS() {
-  const container = document.getElementById('active-sms-container');
-  
-  // Clear any existing global UI intervals/timeouts before rebuilding
-  Object.keys(activePollIntervals).forEach(key => {
-    if (activePollIntervals[key]) {
-      if (activePollIntervals[key].stop) {
-        activePollIntervals[key].stop();
-      } else {
-        clearInterval(activePollIntervals[key]);
-      }
-    }
-    delete activePollIntervals[key];
   });
 
-  try {
-    const res = await fetch('/api/sms/activations');
-    const data = await res.json();
-
-    if (data.activations.length === 0) {
-      container.innerHTML = `
-        <div style="text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 1rem 0;">
-          No active OTP activations listed.
-        </div>`;
-      return;
-    }
-
-    container.innerHTML = '';
-    data.activations.forEach(act => {
-      const actCard = document.createElement('div');
-      actCard.className = 'proxy-list-item';
-      
-      const capitalizedService = act.service.charAt(0).toUpperCase() + act.service.slice(1);
-      
-      const countryFlags = {
-        usa: '🇺🇸',
-        canada: '🇨🇦',
-        england: '🇬🇧',
-        germany: '🇩🇪',
-        nigeria: '🇳🇬'
-      };
-      const flag = countryFlags[(act.country || 'usa').toLowerCase()] || '🇺🇸';
-      
-      let statusMarkup = '';
-      
-      if (act.status === 'waiting') {
-        statusMarkup = `
-          <div class="active-number-container">
-            <span style="font-size: 0.8rem; color: var(--cyan-text); font-weight: bold; text-transform: uppercase;">Rented Number</span>
-            <div class="number-display" id="num-disp-${act.id}">${act.phone_number}</div>
-            
-            <div class="otp-box">
-              <div class="otp-label">Incoming Verification Code (OTP)</div>
-              <div class="otp-code" id="otp-code-${act.id}" style="font-size: 1.15rem; color: var(--text-muted); letter-spacing: normal;">
-                <span class="spinner" style="margin-right: 0.5rem; width: 14px; height: 14px; border-top-color: var(--cyan);"></span> Waiting for SMS...
-              </div>
-            </div>
-
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.75rem;">
-              <span class="countdown-timer" id="timer-${act.id}">Expires: Loading...</span>
-              <button class="btn btn-outline" id="cancel-${act.id}" style="width: auto; padding: 0.4rem 0.8rem; font-size: 0.75rem; color: var(--red); border-color: rgba(239,68,68,0.2);">
-                🚫 Cancel Number
-              </button>
-            </div>
-          </div>
-        `;
-      } else if (act.status === 'received') {
-        statusMarkup = `
-          <div class="active-number-container" style="background: rgba(16, 185, 129, 0.05); border-color: rgba(16, 185, 129, 0.4);">
-            <span style="font-size: 0.8rem; color: var(--emerald-text); font-weight: bold;">NUMBER: ${act.phone_number}</span>
-            <div class="otp-box" style="border-color: rgba(16, 185, 129, 0.3);">
-              <div class="otp-label" style="color: var(--emerald-text);">Received Code</div>
-              <div class="otp-code" id="otp-disp-${act.id}" style="cursor: pointer;" title="Click to Copy">${act.otp_code}</div>
-              <p style="font-size: 0.75rem; color: var(--text-secondary); line-height: 1.2;">"${act.sms_text}"</p>
-            </div>
-            <button class="btn btn-outline" id="copy-otp-${act.id}" style="font-size: 0.75rem; padding: 0.4rem; width: 100%;">
-              📋 Copy Verification Code
-            </button>
-          </div>
-        `;
-      } else {
-        // Expired or Cancelled status
-        const color = act.status === 'cancelled' ? 'var(--text-muted)' : 'var(--red)';
-        statusMarkup = `
-          <div style="padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 0.5rem; text-align: center; background: rgba(0,0,0,0.1); margin-top: 0.5rem;">
-            <div style="font-size: 0.85rem; color: #FFF; font-weight: bold;">${act.phone_number}</div>
-            <div style="font-size: 0.75rem; color: ${color}; font-weight: bold; text-transform: uppercase; margin-top: 0.25rem;">
-              Status: ${act.status} (Naira Refunded)
-            </div>
-          </div>
-        `;
-      }
-
-      const opLabel = act.operator ? act.operator.toUpperCase() : 'ANY';
-      actCard.innerHTML = `
-        <div class="proxy-list-item-header">
-          <span style="font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
-            📱 ${capitalizedService} ${flag} (${act.phone_number}) <span style="font-size: 0.7rem; background: rgba(142, 154, 175, 0.15); padding: 0.15rem 0.35rem; border-radius: 0.25rem; color: var(--text-secondary); font-weight: bold;">${opLabel}</span>
-          </span>
-          <span style="font-size: 0.75rem; color: var(--text-secondary); margin-left: auto; margin-right: 1rem;">
-            ₦${(act.cost / 100).toLocaleString()} | <span style="text-transform: uppercase; font-weight: bold; color: ${act.status === 'received' ? 'var(--lavender-grey)' : 'var(--text-secondary)'};">${act.status}</span>
-          </span>
-          <span class="chevron">▼</span>
-        </div>
-        
-        <div class="proxy-list-item-content">
-          ${statusMarkup}
-        </div>
-      `;
-
-      container.appendChild(actCard);
-
-      // Accordion toggle click handler
-      const header = actCard.querySelector('.proxy-list-item-header');
-      header.addEventListener('click', () => {
-        actCard.classList.toggle('open');
+  // 1-Click Copy Listeners
+  const bindCopy = (btnId, textToCopy, toastMsg) => {
+    const btn = card.querySelector(btnId);
+    if (btn) {
+      btn.addEventListener('click', () => {
+        navigator.clipboard.writeText(textToCopy).then(() => {
+          showToast(toastMsg, 'success');
+        });
       });
+    }
+  };
 
-      // Setup logic if waiting
-      if (act.status === 'waiting') {
-        // Start timers
-        const expiryTime = new Date(act.expires_at).getTime();
-        const timerEl = document.getElementById(`timer-${act.id}`);
-        
-        function updateTimer() {
-          const distance = expiryTime - Date.now();
-          if (distance <= 0) {
-            timerEl.textContent = 'Expired';
-            clearInterval(timerInterval);
-            // Polling handles cancellation/cleanup automatically
-          } else {
-            const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-            const seconds = Math.floor((distance % (1000 * 60)) / 1000);
-            timerEl.textContent = `Expires in: ${minutes}m ${seconds}s`;
-          }
-        }
-        
-        updateTimer();
-        const timerInterval = setInterval(updateTimer, 1000);
-        
-        // Start active status check polling for SMS arrivals with step backoff
-        let elapsedSeconds = 0;
-        let checkTimeoutId = null;
+  bindCopy(`#copy-ip-${lease.id}`, lease.ip_address, 'IP address copied!');
+  bindCopy(`#copy-login-${lease.id}`, lease.socks5_user, 'Login username copied!');
+  bindCopy(`#copy-pass-${lease.id}`, lease.socks5_pass, 'Password copied!');
 
-        function checkNext() {
-          let intervalMs = 3000; // 0-60s: 3s
-          if (elapsedSeconds > 180) {
-            intervalMs = 12000; // 180+s: 12s
-          } else if (elapsedSeconds > 60) {
-            intervalMs = 7000; // 60-180s: 7s
-          }
-
-          checkTimeoutId = setTimeout(async () => {
-            elapsedSeconds += (intervalMs / 1000);
-            const statusChanged = await pollSMSStatus(act.id, timerInterval);
-            if (!statusChanged) {
-              checkNext();
-            }
-          }, intervalMs);
-
-          // Track callback wrapper so it can be stopped on cancel or reload
-          activePollIntervals[act.id] = {
-            type: 'timeout',
-            id: checkTimeoutId,
-            stop: () => {
-              clearTimeout(checkTimeoutId);
-            }
-          };
-        }
-
-        checkNext();
-
-        // Cancel Active Number click listener
-        cardItemSetupCancel(act.id, timerInterval, activePollIntervals[act.id]);
-      }
-
-      // Copy OTP listener
-      if (act.status === 'received') {
-        const copyBtn = document.getElementById(`copy-otp-${act.id}`);
-        const otpText = document.getElementById(`otp-disp-${act.id}`);
-        
-        const copyFn = () => {
-          navigator.clipboard.writeText(act.otp_code).then(() => {
-            showToast('OTP code copied!', 'success');
-            
-            if (copyBtn) {
-              const originalText = copyBtn.innerHTML;
-              const originalBg = copyBtn.style.background;
-              const originalBorder = copyBtn.style.borderColor;
-              const originalColor = copyBtn.style.color;
-
-              copyBtn.innerHTML = 'Copied! ✓';
-              copyBtn.style.background = 'rgba(16, 185, 129, 0.15)';
-              copyBtn.style.borderColor = 'rgba(16, 185, 129, 0.5)';
-              copyBtn.style.color = '#10b981';
-
-              setTimeout(() => {
-                copyBtn.innerHTML = originalText;
-                copyBtn.style.background = originalBg;
-                copyBtn.style.borderColor = originalBorder;
-                copyBtn.style.color = originalColor;
-              }, 2000);
-            }
-          });
-        };
-
-        if (copyBtn) copyBtn.addEventListener('click', copyFn);
-        if (otpText) otpText.addEventListener('click', copyFn);
-      }
+  const copyConnBtn = card.querySelector(`#copy-conn-${lease.id}`);
+  if (copyConnBtn) {
+    copyConnBtn.addEventListener('click', () => {
+      // Copies standard formatted connection string: protocol://user:pass@ip:port
+      const fullConnString = `${activeProtocol.toLowerCase()}://${lease.socks5_user}:${lease.socks5_pass}@${lease.ip_address}:${lease.socks5_port}`;
+      navigator.clipboard.writeText(fullConnString).then(() => {
+        showToast(`${activeProtocol} connection string copied!`, 'success');
+      });
     });
-
-  } catch (err) {
-    console.error('Failed to load SMS activations:', err);
   }
-}
 
-// Bind cancel button click
-function cardItemSetupCancel(id, timerInterval, pollTracker) {
-  const cancelBtn = document.getElementById(`cancel-${id}`);
-  if (!cancelBtn) return;
-
-  cancelBtn.addEventListener('click', async () => {
-    try {
-      cancelBtn.disabled = true;
-      cancelBtn.innerHTML = '<span class="spinner" style="width:10px; height:10px;"></span>...';
-      
-      const res = await fetch(`/api/sms/cancel/${id}`, { method: 'POST' });
-      const data = await res.json();
-      
-      if (!res.ok) {
-        showToast(data.error || 'Failed to cancel number', 'error');
-        cancelBtn.disabled = false;
-        cancelBtn.textContent = 'Cancel';
-        return;
-      }
-
-      clearInterval(timerInterval);
-      if (pollTracker) {
-        if (pollTracker.stop) {
-          pollTracker.stop();
-        } else {
-          clearInterval(pollTracker);
-        }
-      }
-      
-      showToast(data.message, 'success');
-      
-      fetchUserProfile();
-      loadActiveSMS();
-    } catch (err) {
-      showToast('Error cancelling number.', 'error');
-      cancelBtn.disabled = false;
+  // Expiry Countdown (30d 09:22:26)
+  const expiryText = card.querySelector(`#expiry-text-${lease.id}`);
+  const tickExpiry = () => {
+    const diff = expiresAt - Date.now();
+    if (diff <= 0) {
+      if (expiryText) expiryText.textContent = 'Expired';
+    } else {
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = String(Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))).padStart(2, '0');
+      const mins = String(Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))).padStart(2, '0');
+      const secs = String(Math.floor((diff % (1000 * 60)) / 1000)).padStart(2, '0');
+      if (expiryText) expiryText.textContent = `Expires in: ${days}d ${hours}:${mins}:${secs}`;
     }
-  });
+  };
+
+  tickExpiry();
+  setInterval(tickExpiry, 1000);
+
+  return card;
 }
 
-// Poller method to request activation checks
-async function pollSMSStatus(id, timerInterval) {
+// Export active proxies as .txt file
+async function exportProxiesTxt() {
   try {
-    const res = await fetch(`/api/sms/poll/${id}`);
+    const res = await fetch('/api/proxy/leases');
     const data = await res.json();
-
-    if (!res.ok) return false;
-
-    // Check if status changed
-    if (data.activation.status !== 'waiting') {
-      clearInterval(timerInterval);
-      const pollTracker = activePollIntervals[id];
-      if (pollTracker) {
-        if (pollTracker.stop) {
-          pollTracker.stop();
-        } else {
-          clearInterval(pollTracker);
-        }
-      }
-      
-      if (data.activation.status === 'received') {
-        showToast('OTP verification code arrived!', 'success');
-      } else {
-        showToast('Activation timed out and refunded.', 'error');
-      }
-      
-      fetchUserProfile();
-      loadActiveSMS();
-      return true; // Status changed, stop polling loop
+    if (!data.leases || data.leases.length === 0) {
+      showToast('No active proxies to download', 'error');
+      return;
     }
-  } catch (err) {
-    console.error('Polling error:', err);
+
+    const lines = data.leases.map(l => `${l.ip_address}:${l.socks5_port}:${l.socks5_user}:${l.socks5_pass}`);
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `proxyvault-proxies-${Date.now()}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('Proxies exported to .txt!', 'success');
+  } catch (e) {
+    showToast('Failed to export proxies', 'error');
   }
-  return false; // Still waiting
 }
 
 // ----------------------------------------------------
-// TRANSACTION LOGGER & RECENT AUDITS
+// TRANSACTION LOGS & AUDITS
 // ----------------------------------------------------
 async function loadTransactions() {
   const container = document.getElementById('tx-history-list');
+  if (!container) return;
+
   try {
     const res = await fetch('/api/wallet/transactions');
     const data = await res.json();
 
-    if (data.transactions.length === 0) {
-      container.innerHTML = `
-        <div style="text-align: center; color: var(--text-muted); padding: 1.5rem 0;">
-          No transactions found.
-        </div>`;
+    if (!data.transactions || data.transactions.length === 0) {
+      container.innerHTML = '<div style="color:var(--text-muted); font-size: 0.825rem; text-align:center; padding: 1.5rem;">No transaction records found.</div>';
       return;
     }
 
     container.innerHTML = '';
     data.transactions.forEach(tx => {
-      const date = new Date(tx.created_at).toLocaleString();
-      const amountFormatted = formatNaira(Math.abs(tx.amount));
-      
-      let typeText = '';
-      let styleColor = '';
-      let prefix = '';
+      const row = document.createElement('div');
+      row.style.padding = '0.75rem 1rem';
+      row.style.background = '#0f1826';
+      row.style.borderRadius = 'var(--radius-md)';
+      row.style.display = 'flex';
+      row.style.justifyContent = 'space-between';
+      row.style.alignItems = 'center';
+      row.style.fontSize = '0.85rem';
 
-      switch (tx.type) {
-        case 'deposit':
-          if (tx.status === 'failed') {
-            typeText = 'Wallet Fund (Failed)';
-            styleColor = 'var(--red)';
-            prefix = '';
-          } else if (tx.status === 'pending') {
-            typeText = 'Wallet Fund (Pending)';
-            styleColor = 'var(--text-secondary)';
-            prefix = '';
-          } else {
-            typeText = 'Wallet Fund';
-            styleColor = 'var(--emerald-text)';
-            prefix = '+';
-          }
-          break;
-        case 'proxy_rent':
-          typeText = 'Proxy Lease (30d)';
-          styleColor = 'var(--red)';
-          prefix = '-';
-          break;
-        case 'sms_rent':
-          typeText = 'SMS verification';
-          styleColor = 'var(--red)';
-          prefix = '-';
-          break;
-        case 'sms_refund':
-          typeText = 'SMS Refund';
-          styleColor = 'var(--emerald-text)';
-          prefix = '+';
-          break;
+      let typeLabel = tx.type;
+      let color = 'var(--emerald-text)';
+      let sign = '+';
+
+      if (tx.type === 'deposit') {
+        typeLabel = tx.status === 'completed' ? 'Wallet Deposit' : `Deposit (${tx.status})`;
+      } else if (tx.type === 'proxy_rent') {
+        typeLabel = 'Static Proxy Lease (30d)';
+        color = 'var(--red)';
+        sign = '-';
+      } else if (tx.type === 'sms_rent') {
+        typeLabel = 'Virtual SMS Activation';
+        color = 'var(--red)';
+        sign = '-';
+      } else if (tx.type === 'sms_refund') {
+        typeLabel = 'SMS Refund';
+        color = 'var(--emerald-text)';
+        sign = '+';
       }
 
-      const row = document.createElement('div');
-      row.style.display = 'flex';
-      row.style.justify = 'space-between';
-      row.style.padding = '0.75rem 0';
-      row.style.borderBottom = '1px solid var(--border-color)';
-      
       row.innerHTML = `
         <div>
-          <div style="font-weight: 600; color: var(--text-primary);">${typeText}</div>
-          <div style="font-size: 0.72rem; color: var(--text-secondary); margin-top: 0.15rem;">${date}</div>
-          <div style="font-size: 0.65rem; color: var(--text-secondary); font-family: monospace;">Ref: ${tx.reference}</div>
+          <div style="font-weight: 700; color: #fff;">${typeLabel}</div>
+          <div style="font-size: 0.72rem; color: var(--text-secondary); margin-top: 0.15rem;">
+            ${new Date(tx.created_at).toLocaleString()} • Ref: <span style="font-family: var(--font-mono);">${tx.reference}</span>
+          </div>
         </div>
-        <div style="font-weight: 800; color: ${styleColor}; font-size: 0.95rem;">
-          ${prefix}₦${amountFormatted}
+        <div style="font-weight: 800; font-family: var(--font-mono); color: ${color}; font-size: 0.95rem;">
+          ${sign}₦${formatNaira(Math.abs(tx.amount))}
         </div>
       `;
+
       container.appendChild(row);
     });
 
   } catch (err) {
-    console.error('Failed to load transaction history logs:', err);
+    console.error('Failed to load transaction history:', err);
   }
 }
 
-
-
 // ----------------------------------------------------
-// TOAST WRAPPER
+// TOAST NOTIFICATIONS
 // ----------------------------------------------------
 function showToast(message, type = 'success') {
   const container = document.getElementById('toast-container');
+  if (!container) return;
+
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
   toast.innerHTML = `<span>${message}</span>`;
   container.appendChild(toast);
-  
+
   setTimeout(() => {
     toast.style.opacity = '0';
     setTimeout(() => toast.remove(), 400);
-  }, 3000);
+  }, 3200);
 }

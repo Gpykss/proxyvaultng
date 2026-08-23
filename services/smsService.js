@@ -74,7 +74,8 @@ async function checkSMS(id, creationTimeMs, service) {
     if (elapsedSeconds >= 15) {
       // Auto-arrive code after 15 seconds
       const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-      const capitalizedService = service.charAt(0).toUpperCase() + service.slice(1);
+      const sName = service || 'service';
+      const capitalizedService = sName.charAt(0).toUpperCase() + sName.slice(1);
       return {
         status: 'received',
         otp_code: otpCode,

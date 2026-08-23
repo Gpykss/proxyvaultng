@@ -7,7 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 const QRCode = require('qrcode');
-const { User, Transaction, ProxyLease, SmsActivation, TelegramTicketMapping, TelegramSupportSession, dbReady, connectDB } = require('./db');
+const { User, Transaction, ProxyLease, SmsActivation, TelegramTicketMapping, TelegramSupportSession, dbReady, connectDB, mongoose } = require('./db');
 const proxyService = require('./services/proxyService');
 const smsService = require('./services/smsService');
 const balanceNotifier = require('./services/balanceNotifier');
@@ -140,6 +140,21 @@ app.use(async (req, res, next) => {
   }
 });
 
+// Clean Page Routing (Strip .html from URLs)
+app.get('/dashboard', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
+});
+
+app.get('/dashboard.html', (req, res) => {
+  const query = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+  res.redirect(301, `/dashboard${query}`);
+});
+
+app.get('/index.html', (req, res) => {
+  const query = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+  res.redirect(301, `/${query}`);
+});
+
 // Serve static frontend files
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -233,6 +248,43 @@ app.post('/api/auth/login', async (req, res) => {
 app.post('/api/auth/logout', (req, res) => {
   res.destroySession();
   res.json({ message: 'Logged out successfully' });
+});
+
+// Change Password Endpoint (5SIM Settings Modal)
+app.post('/api/auth/change-password', requireAuth, async (req, res) => {
+  const { oldPassword, newPassword, repeatPassword } = req.body;
+  if (!oldPassword || !newPassword || !repeatPassword) {
+    return res.status(400).json({ error: 'All password fields are required.' });
+  }
+
+  if (newPassword !== repeatPassword) {
+    return res.status(400).json({ error: 'New password and repeat password do not match.' });
+  }
+
+  if (newPassword.length < 8) {
+    return res.status(400).json({ error: 'New password must be at least 8 characters long.' });
+  }
+
+  try {
+    const user = await User.findById(req.session.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    const isMatch = await bcrypt.compare(oldPassword, user.password_hash);
+    if (!isMatch) {
+      return res.status(400).json({ error: 'Incorrect old password.' });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    user.password_hash = await bcrypt.hash(newPassword, salt);
+    await user.save();
+
+    res.json({ message: 'Password changed successfully.' });
+  } catch (err) {
+    console.error('Password change error:', err);
+    res.status(500).json({ error: 'Internal server error while changing password.' });
+  }
 });
 
 // Helper to query Korapay and reconcile any pending deposits (throttled to protect rate limits)
@@ -354,7 +406,7 @@ app.post('/api/v1/payments/initialize', requireAuth, async (req, res) => {
       currency: 'NGN',
       reference,
       notification_url: `${protocol}://${req.headers.host}/api/v1/payments/korapay-webhook`,
-      redirect_url: `${protocol}://${req.headers.host}/dashboard.html?payment=success&reference=${reference}`,
+      redirect_url: `${protocol}://${req.headers.host}/dashboard?payment=success&reference=${reference}`,
       customer: {
         email: req.session.email
       },
@@ -977,11 +1029,19 @@ async function getProxyCostKobo(country, isp) {
   if (proxyCatalogCache) {
     const code = country.toUpperCase();
     const targetCountryObj = proxyCatalogCache.find(c => c.country_code === code);
-    if (targetCountryObj) {
-      const providerId = (isp || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
-      const provider = targetCountryObj.providers.find(p => p.id === providerId || p.name.toLowerCase() === (isp || '').toLowerCase());
-      if (provider && provider.price_ngn) {
-        return provider.price_ngn * 100; // NGN to Kobo
+    if (targetCountryObj && targetCountryObj.providers && targetCountryObj.providers.length > 0) {
+      const isAnyIsp = !isp || isp.toLowerCase() === 'any';
+      if (isAnyIsp) {
+        const provider = targetCountryObj.providers[0];
+        if (provider && provider.price_ngn) {
+          return provider.price_ngn * 100;
+        }
+      } else {
+        const providerId = (isp || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+        const provider = targetCountryObj.providers.find(p => p.id === providerId || p.name.toLowerCase().includes(isp.toLowerCase()) || isp.toLowerCase().includes(p.name.toLowerCase()));
+        if (provider && provider.price_ngn) {
+          return provider.price_ngn * 100; // NGN to Kobo
+        }
       }
     }
   }
@@ -994,10 +1054,11 @@ async function getProxyCostKobo(country, isp) {
     });
     const items = response.data.results || [];
     const code = country.toUpperCase();
+    const isAnyIsp = !isp || isp.toLowerCase() === 'any';
     const matchedItem = items.find(item => 
       item.proxy_category === 'residential_static' &&
       (item.location_country_code || '').toUpperCase() === code &&
-      (item.title.toLowerCase().includes((isp || '').toLowerCase()) || (isp || '').toLowerCase().includes(item.title.toLowerCase()))
+      (isAnyIsp || item.title.toLowerCase().includes((isp || '').toLowerCase()) || (isp || '').toLowerCase().includes(item.title.toLowerCase()))
     );
 
     if (matchedItem && matchedItem.proxy_products && matchedItem.proxy_products[0]) {

@@ -5,285 +5,532 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ProxyVault 🇳🇬 - Portal Dashboard</title>
   <link rel="stylesheet" href="css/style.css">
-  <!-- Include QRCode CDN Library for client-side canvas rendering -->
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 </head>
 <body>
-  <div class="app-layout">
-    <!-- Desktop Left Sidebar Panel -->
-    <aside class="sidebar">
-      <div class="sidebar-header">
-        <div class="logo">
-          <span>ProxyVault 🇳🇬</span>
+
+  <!-- Top Navigation Bar (CyberYozh / 5SIM Style) -->
+  <header class="top-navbar">
+    <div class="top-navbar-left">
+      <button class="menu-toggle-btn" id="drawer-open-btn" aria-label="Open Navigation Menu">
+        ☰
+      </button>
+      <a href="#" class="brand-logo" id="brand-home-link">
+        <span class="brand-logo-icon">⚡</span>
+        <span class="brand-logo-text">ProxyVault</span>
+        <span class="badge-ng">🇳🇬 NG</span>
+      </a>
+
+      <!-- Desktop Nav Tabs -->
+      <nav class="desktop-nav-links">
+        <button class="nav-tab-btn active" data-target="#proxies-view">🌐 Proxies</button>
+        <button class="nav-tab-btn" data-target="#sms-view">📱 SMS OTP</button>
+        <button class="nav-tab-btn" data-target="#wallet-view">💳 Wallet & Logs</button>
+        <button class="nav-tab-btn" data-target="#guide-view">📘 Guide</button>
+      </nav>
+    </div>
+
+    <div class="top-navbar-right">
+      <!-- Live Wallet Balance Pill -->
+      <div class="balance-pill" id="header-wallet-btn" title="Click to Top Up Wallet">
+        <span style="color: var(--text-muted);">💳</span>
+        <span style="color: var(--cyan-accent); font-family: var(--font-mono);">₦</span>
+        <span id="display-balance" style="font-family: var(--font-mono);">0.00</span>
+        <span class="topup-plus-btn">+</span>
+      </div>
+
+      <a href="https://t.me/ProxyvaultsupportBot" target="_blank" rel="noopener noreferrer" class="topbar-icon-btn" title="Telegram Support" style="text-decoration: none;">
+        💬
+      </a>
+
+      <!-- User Profile Dropdown Component (5SIM Reference Style) -->
+      <div class="user-profile-dropdown-wrapper" id="profile-dropdown-wrapper">
+        <button class="profile-toggle-btn" id="profile-toggle-btn" aria-haspopup="true" aria-expanded="false" title="Account Menu">
+          <span class="profile-avatar-icon">👤</span>
+          <span class="profile-caret">⌄</span>
+        </button>
+
+        <div class="profile-dropdown-menu" id="profile-dropdown-menu">
+          <!-- User ID Row with 1-click Copy -->
+          <div class="dropdown-id-row">
+            <div class="dropdown-id-info">
+              <span style="font-size: 1rem;">👤</span>
+              <span class="dropdown-id-text">ID: <span id="dropdown-user-id">4355195</span></span>
+            </div>
+            <button class="copy-icon-btn" id="copy-user-id-btn" title="Copy User ID">
+              📋
+            </button>
+          </div>
+
+          <div class="dropdown-divider"></div>
+
+          <!-- Menu Action Items -->
+          <button class="dropdown-menu-item" id="dropdown-topup-btn">
+            <span class="dropdown-item-icon">💵</span>
+            <span>Top up balance</span>
+          </button>
+
+          <button class="dropdown-menu-item" id="dropdown-settings-btn">
+            <span class="dropdown-item-icon">⚙️</span>
+            <span>Settings</span>
+          </button>
+
+          <button class="dropdown-menu-item logout-item" id="dropdown-logout-btn">
+            <span class="dropdown-item-icon">↳</span>
+            <span>Log out</span>
+          </button>
         </div>
       </div>
-      <nav class="sidebar-nav">
-        <a href="#wallet-card" class="nav-item active">💳 Wallet & Logs</a>
-        <a href="#proxy-card" class="nav-item">🌐 Static IPs</a>
-        <a href="#sms-card" class="nav-item">📱 SMS OTPs</a>
-        <a href="#guide-card" class="nav-item">📘 How to Use Guide</a>
-        <a href="#" id="dashboard-tos-link" class="nav-item">📄 Terms of Service</a>
-        <a href="https://t.me/ProxyvaultsupportBot" target="_blank" class="nav-item" style="margin-top: 1.5rem; border-top: 1px dashed rgba(27, 29, 42, 0.1); padding-top: 1rem; font-weight: 700; color: #1b1d2a !important;">💬 Live Support (TG)</a>
-      </nav>
-      <div class="sidebar-footer">
-        <div class="system-status" style="margin-bottom: 1rem;">
-          <div class="status-dot"></div>
-          <span>System Online</span>
+    </div>
+  </header>
+
+  <!-- Mobile Drawer Sidebar Menu -->
+  <div class="drawer-overlay" id="drawer-overlay">
+    <aside class="drawer-sidebar">
+      <div class="drawer-header">
+        <div class="brand-logo">
+          <span>ProxyVault 🇳🇬</span>
         </div>
-        <button class="btn-text" id="logout-btn-desktop" style="color: var(--red); font-size: 0.85rem; padding: 0.25rem 0; width: 100%; text-align: left; display: flex; align-items: center; gap: 0.5rem;">
+        <button class="drawer-close-btn" id="drawer-close-btn">&times;</button>
+      </div>
+
+      <nav class="drawer-nav-list">
+        <button class="drawer-nav-item active" data-target="#proxies-view">
+          <span>🌐 Proxies</span>
+          <span>›</span>
+        </button>
+        <button class="drawer-nav-item" data-target="#sms-view">
+          <span>📱 SMS OTP</span>
+          <span>›</span>
+        </button>
+        <button class="drawer-nav-item" data-target="#wallet-view">
+          <span>💳 Wallet & Top Up</span>
+          <span>›</span>
+        </button>
+        <button class="drawer-nav-item" data-target="#guide-view">
+          <span>📘 How to Use</span>
+          <span>›</span>
+        </button>
+        <button class="drawer-nav-item" id="drawer-tos-btn">
+          <span>📄 Terms of Service</span>
+          <span>›</span>
+        </button>
+        <a href="https://t.me/ProxyvaultsupportBot" target="_blank" rel="noopener noreferrer" class="drawer-nav-item" style="color: var(--cyan-accent);">
+          <span>💬 Live Support (TG)</span>
+          <span>↗</span>
+        </a>
+      </nav>
+
+      <div class="drawer-footer">
+        <div style="font-size: 0.8rem; color: var(--text-secondary); display: flex; align-items: center; justify-content: space-between;">
+          <span>Account</span>
+          <span id="drawer-user-email" style="color: #fff; font-weight: 600; font-family: var(--font-mono);">...</span>
+        </div>
+        <button class="btn-danger" id="logout-drawer-btn" style="width: 100%;">
           🚪 Log Out
         </button>
       </div>
     </aside>
+  </div>
 
-    <!-- Main Dynamic Content Workspace -->
-    <main class="main-content">
-      <!-- Mobile Top Navigation Header -->
-      <header class="mobile-header">
-        <div class="logo">
-          <span>ProxyVault 🇳🇬</span>
-        </div>
-        <div class="system-status">
-          <div class="status-dot"></div>
-          <span>Online</span>
-        </div>
-        <button class="btn-text" id="logout-btn-mobile" style="color: var(--red); font-size: 0.8rem;">Log Out</button>
-      </header>
+  <!-- Main Dynamic Application Workspace -->
+  <main class="app-container">
 
-      <!-- Mobile Navigation Tabs (visible only on mobile) -->
-      <div class="mobile-tabs" style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem; background: rgba(203, 192, 211, 0.15); padding: 0.35rem; border-radius: 0.5rem; border: 1px solid var(--border-color);">
-        <button class="mobile-tab-item active" data-target="#wallet-card" style="flex: 1; border: none; background: none; padding: 0.4rem; font-size: 0.8rem; font-weight: 600; border-radius: 0.35rem; cursor: pointer; color: var(--text-secondary); transition: var(--transition-smooth); -webkit-tap-highlight-color: transparent;">💳 Wallet</button>
-        <button class="mobile-tab-item" data-target="#proxy-card" style="flex: 1; border: none; background: none; padding: 0.4rem; font-size: 0.8rem; font-weight: 600; border-radius: 0.35rem; cursor: pointer; color: var(--text-secondary); transition: var(--transition-smooth); -webkit-tap-highlight-color: transparent;">🌐 IPs</button>
-        <button class="mobile-tab-item" data-target="#sms-card" style="flex: 1; border: none; background: none; padding: 0.4rem; font-size: 0.8rem; font-weight: 600; border-radius: 0.35rem; cursor: pointer; color: var(--text-secondary); transition: var(--transition-smooth); -webkit-tap-highlight-color: transparent;">📱 SMS</button>
-        <button class="mobile-tab-item" data-target="#guide-card" style="flex: 1; border: none; background: none; padding: 0.4rem; font-size: 0.8rem; font-weight: 600; border-radius: 0.35rem; cursor: pointer; color: var(--text-secondary); transition: var(--transition-smooth); -webkit-tap-highlight-color: transparent;">📘 Guide</button>
+    <!-- ====================================================
+         1. PROXIES VIEW SECTION (CyberYozh Style)
+    ==================================================== -->
+    <section class="dashboard-view-section active" id="proxies-view">
+      <div class="sub-header-bar">
+        <div class="page-title">
+          <span>🌐 My Proxies</span>
+        </div>
+
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem;">
+          <div class="pill-segmented-control">
+            <button class="pill-segment-btn active" id="proxy-filter-active">Active Proxy</button>
+            <button class="pill-segment-btn" id="proxy-filter-history">History</button>
+          </div>
+
+          <div class="action-buttons-group">
+            <button class="btn-outline" id="download-proxies-txt-btn" style="font-size: 0.78rem; padding: 0.4rem 0.75rem;">
+              Download .txt
+            </button>
+            <button class="btn-primary" id="open-rent-proxy-modal-btn">
+              + Rent Proxy
+            </button>
+          </div>
+        </div>
       </div>
 
-      <!-- Horizontally Aligned Responsive Desktop Grid -->
-      <div class="dashboard-cards-grid">
+      <!-- Active Proxy Items Container -->
+      <div class="proxy-cards-list" id="active-proxies-container">
+        <!-- Rendered dynamically by app.js (CyberYozh Card Style) -->
+      </div>
+    </section>
+
+
+    <!-- ====================================================
+         2. SMS OTP VIEW SECTION (5SIM Multi-Step Style)
+    ==================================================== -->
+    <section class="dashboard-view-section" id="sms-view">
+      <div class="sub-header-bar">
+        <div>
+          <h1 class="page-title" style="font-size: 1.25rem;">📱 Virtual Numbers for Receiving SMS</h1>
+          <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.2rem;">Instant OTP verification for WhatsApp, Telegram, Google, OpenAI, etc.</p>
+        </div>
+
+        <div class="pill-segmented-control">
+          <button class="pill-segment-btn active">Manual Buy</button>
+          <button class="pill-segment-btn">Prices</button>
+        </div>
+      </div>
+
+      <!-- 5SIM 2-Column Responsive Layout -->
+      <div class="sms-layout-grid">
         
-        <!-- Wallet Card -->
-        <div class="card wallet-banner" id="wallet-card">
-          <div class="wallet-label">Naira Account Wallet</div>
-          <div class="wallet-balance">
-            <span class="currency">₦</span>
-            <span id="display-balance">0.00</span>
+        <!-- LEFT COLUMN: 3-STEP SELECTION PANE -->
+        <div style="display: flex; flex-direction: column; gap: 1rem;">
+          
+          <!-- STEP 1: SELECT SERVICE -->
+          <div class="sms-step-card" id="step-1-card">
+            <div class="step-header-title">
+              <span>1. Select service</span>
+            </div>
+
+            <!-- Active Selected Service Chip (Collapsed state) -->
+            <div class="active-selected-chip" id="step-1-active-chip" style="display: none;">
+              <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <span id="chip-service-icon">🔵</span>
+                <span id="chip-service-name">Service</span>
+              </div>
+              <button class="chip-clear-btn" id="chip-clear-service-btn" title="Change Service">✕</button>
+            </div>
+
+            <!-- Service Selection Search & List -->
+            <div id="step-1-selection-box">
+              <input type="text" class="step-search-input" id="sms-service-search" placeholder="🔍 Find website or app...">
+              
+              <div class="step-items-list" id="sms-services-list" style="margin-top: 0.75rem;">
+                <!-- Filled dynamically by app.js -->
+              </div>
+            </div>
           </div>
-          <div class="wallet-actions">
-            <button class="btn btn-primary" id="open-topup-btn">Top Up Wallet</button>
-            <button class="btn btn-outline" id="open-tx-btn" style="font-size: 0.85rem;">Logs & Audits</button>
+
+          <!-- STEP 2: SELECT COUNTRY -->
+          <div class="sms-step-card" id="step-2-card">
+            <div class="step-header-title">
+              <span>2. Select country</span>
+            </div>
+
+            <!-- Active Selected Country Chip (Collapsed state) -->
+            <div class="active-selected-chip" id="step-2-active-chip" style="display: none;">
+              <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <span id="chip-country-flag">🇺🇸</span>
+                <span id="chip-country-name">USA</span>
+              </div>
+              <button class="chip-clear-btn" id="chip-clear-country-btn" title="Change Country">✕</button>
+            </div>
+
+            <!-- Country Selection Search & List -->
+            <div id="step-2-selection-box">
+              <input type="text" class="step-search-input" id="sms-country-search" placeholder="🔍 Find country...">
+              
+              <div class="step-items-list" id="sms-countries-list" style="margin-top: 0.75rem;">
+                <!-- Filled dynamically by app.js -->
+              </div>
+            </div>
+          </div>
+
+          <!-- STEP 3: SELECT OPERATOR -->
+          <div class="sms-step-card" id="step-3-card">
+            <div class="step-header-title">
+              <span>3. Select operator</span>
+            </div>
+
+            <div id="step-3-prompt" style="font-size: 0.825rem; color: var(--text-muted); text-align: center; padding: 1.5rem 0;">
+              ℹ️ Please select a service and country above first.
+            </div>
+
+            <div class="operator-cards-list" id="sms-operators-list" style="display: none;">
+              <!-- Filled dynamically by app.js -->
+            </div>
+          </div>
+
+        </div>
+
+        <!-- RIGHT COLUMN: ACTIVE ORDER WINDOW & RECENT ACTIVATIONS -->
+        <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+          
+          <!-- Active SMS Activation Order Container -->
+          <div id="active-sms-container">
+            <!-- Rendered dynamically by app.js (5SIM Order Card Style) -->
+          </div>
+
+          <!-- Recent Activations History Card -->
+          <div class="sms-step-card" id="sms-history-card">
+            <div class="step-header-title">
+              <span>📜 Activation History</span>
+            </div>
+            <div id="sms-history-list" style="max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.5rem;">
+              <!-- Filled dynamically by app.js -->
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+
+    <!-- ====================================================
+         3. WALLET & LOGS VIEW SECTION
+    ==================================================== -->
+    <section class="dashboard-view-section" id="wallet-view">
+      <div class="sub-header-bar">
+        <div class="page-title">
+          <span>💳 Naira Account Wallet</span>
+        </div>
+        <button class="btn-primary" id="open-topup-modal-btn">
+          + Top Up Wallet
+        </button>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr; gap: 1.5rem;">
+        
+        <!-- Wallet Balance Card -->
+        <div class="cy-proxy-card" style="background: linear-gradient(135deg, #142236 0%, #1e3250 100%); border-color: rgba(56, 189, 248, 0.3);">
+          <div style="font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em;">
+            Available Balance
+          </div>
+          <div style="font-size: 2.25rem; font-weight: 800; color: #fff; margin: 0.5rem 0; font-family: var(--font-mono);">
+            <span style="color: var(--cyan-accent);">₦</span><span id="wallet-card-balance">0.00</span>
+          </div>
+          <p style="font-size: 0.8rem; color: var(--text-secondary);">
+            Instant automatic funding via Debit Card, Bank Transfer, or USSD via Korapay.
+          </p>
+          <div style="margin-top: 1rem; display: flex; gap: 0.75rem;">
+            <button class="btn-primary" id="wallet-deposit-btn">
+              💳 Top Up Wallet
+            </button>
           </div>
         </div>
 
-        <!-- Activity Audit Log Card -->
-        <div class="card" id="tx-card">
-          <h2 style="font-size: 1.15rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
-            📜 Wallet Audits & Log History
-          </h2>
-          <div id="tx-history-list" style="max-height: 280px; overflow-y: auto; font-size: 0.8rem;">
-            <!-- Filled dynamically -->
+        <!-- Transaction Logs Card -->
+        <div class="sms-step-card">
+          <div class="step-header-title">
+            <span>📜 Transaction & Audit Log History</span>
+          </div>
+          <div id="tx-history-list" style="max-height: 400px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.5rem;">
+            <!-- Filled dynamically by app.js -->
           </div>
         </div>
 
-        <!-- Proxy Management Section -->
-        <div class="card" id="proxy-card">
-          <h2 style="font-size: 1.15rem; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+      </div>
+    </section>
+
+
+    <!-- ====================================================
+         4. GUIDE VIEW SECTION
+    ==================================================== -->
+    <section class="dashboard-view-section" id="guide-view">
+      <div class="sub-header-bar">
+        <div class="page-title">
+          <span>📘 How to Use & Safety Guide</span>
+        </div>
+      </div>
+
+      <div class="sms-step-card" style="gap: 1.5rem;">
+        <div>
+          <h3 style="font-size: 1.05rem; font-weight: 700; color: #fff; margin-bottom: 0.5rem;">
             🌐 Dedicated Static Residential IPs
-          </h2>
-          <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1.25rem;">
-            Fixed home-broadband connections that do not rotate. 30 days active lease.
-          </p>
-
-          <div class="input-group">
-            <label class="input-label" for="proxy-country">Select Target Location</label>
-            <input type="text" id="proxy-country-search" class="input-control" placeholder="🔍 Search country..." style="margin-bottom: 0.5rem; font-size: 0.85rem; padding: 0.45rem 0.75rem; border-radius: 0.35rem; border: 1px solid var(--border-color); width: 100%;">
-            <select class="input-control input-select" id="proxy-country">
-              <!-- Populated dynamically from API -->
-            </select>
-          </div>
-
-          <div class="input-group" id="proxy-isp-container">
-            <label class="input-label" for="proxy-isp">Select Broadband ISP</label>
-            <select class="input-control input-select" id="proxy-isp">
-              <!-- Populated dynamically based on country -->
-            </select>
-          </div>
-
-          <button class="btn btn-primary" id="buy-proxy-btn" style="width: 100%;">
-            Rent Static IP (₦15,000/mo)
-          </button>
-
-          <!-- Active Proxy Display -->
-          <div id="active-proxies-container" style="margin-top: 1.5rem;">
-            <!-- Filled dynamically -->
-          </div>
+          </h3>
+          <ul style="font-size: 0.875rem; color: var(--text-secondary); padding-left: 1.25rem; line-height: 1.6;">
+            <li><strong>Fixed Residential ISP:</strong> Dedicated home-broadband connections (Comcast, Verizon, BT, Rogers) that do not rotate. Active for 30 days.</li>
+            <li><strong>HTTP & SOCKS5:</strong> Toggle between HTTP and SOCKS5 format in your proxy card and copy the connection string directly into Proxifier, SwitchyOmega, or anti-detect browsers.</li>
+            <li><strong>Format:</strong> <code>ip:port:username:password</code> or <code>http://user:pass@ip:port</code>.</li>
+            <li style="color: #7dd3fc; margin-top: 0.35rem;">
+              <strong>🛡️ Limit:</strong> Max 3 concurrent devices per IP to maintain a 0% fraud score.
+            </li>
+          </ul>
         </div>
 
-        <!-- SMS Activations Section -->
-        <div class="card" id="sms-card">
-          <h2 style="font-size: 1.15rem; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
-            📱 SMS OTP Verification
-          </h2>
-          <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1.25rem;">
-            Instant foreign numbers for OTP codes across top platforms. Refunded if code fails to arrive.
-          </p>
-
-          <div class="input-group">
-            <label class="input-label" for="sms-country">Select Number Location</label>
-            <input type="text" id="sms-country-search" class="input-control" placeholder="🔍 Search country..." style="margin-bottom: 0.5rem; font-size: 0.85rem; padding: 0.45rem 0.75rem; border-radius: 0.35rem; border: 1px solid var(--border-color); width: 100%;">
-            <select class="input-control input-select" id="sms-country">
-              <!-- Populated dynamically from API -->
-            </select>
-          </div>
-
-          <div class="input-group">
-            <label class="input-label" for="sms-service">Select OTP Platform</label>
-            <input type="text" id="sms-service-search" class="input-control" placeholder="🔍 Search platform..." style="margin-bottom: 0.5rem; font-size: 0.85rem; padding: 0.45rem 0.75rem; border-radius: 0.35rem; border: 1px solid var(--border-color); width: 100%;">
-            <select class="input-control input-select" id="sms-service">
-              <!-- Populated dynamically from API -->
-            </select>
-          </div>
-
-          <div class="input-group">
-            <label class="input-label" for="sms-operator">Select Carrier / Network</label>
-            <select class="input-control input-select" id="sms-operator">
-              <!-- Populated dynamically from API -->
-            </select>
-          </div>
-
-          <div id="sms-rating-container" style="margin-top: -0.5rem; margin-bottom: 1.25rem;">
-            <span id="sms-rating-badge" class="badge" style="background: rgba(16, 185, 129, 0.15); color: var(--emerald-text); border: 1px solid rgba(16, 185, 129, 0.4); padding: 0.35rem 0.65rem; border-radius: 0.25rem; font-size: 0.72rem; font-weight: bold; display: inline-flex; align-items: center; gap: 0.25rem;">
-              ⚡ Success Rate: --
-            </span>
-          </div>
-
-          <button class="btn btn-secondary" id="buy-sms-btn" style="width: 100%;">
-            Rent Virtual Number
-          </button>
-
-          <!-- Active Activations Display -->
-          <div id="active-sms-container" style="margin-top: 1.5rem;">
-            <!-- Filled dynamically -->
-          </div>
+        <div style="border-top: 1px solid var(--border-color); padding-top: 1.25rem;">
+          <h3 style="font-size: 1.05rem; font-weight: 700; color: #fff; margin-bottom: 0.5rem;">
+            📱 Virtual SMS OTP Verification
+          </h3>
+          <ul style="font-size: 0.875rem; color: var(--text-secondary); padding-left: 1.25rem; line-height: 1.6;">
+            <li><strong>Multi-Step Workflow:</strong> 1) Select Service &rarr; 2) Select Country &rarr; 3) Select Operator.</li>
+            <li><strong>Signal Success Rates:</strong> Pick operators showing high signal percentages (>80% or 95%) for maximum OTP delivery reliability.</li>
+            <li><strong>Auto-Refund Guarantee:</strong> If an SMS code does not arrive within the lease window, the order cancels and your wallet is refunded instantly.</li>
+            <li style="color: #fde047; margin-top: 0.35rem;">
+              <strong>⏱️ Fast Retries & Signal Switching:</strong> If after <strong>3 to 5 minutes</strong> you have not received your code, click <strong>"Cancel & Refund"</strong> (which is free and instantly returns your Naira balance) and select a different carrier/operator with another signal strength until your code arrives.
+            </li>
+            <li style="color: #4ade80; margin-top: 0.35rem;">
+              <strong>🔒 Security Tip:</strong> Immediately enable 2-Factor Authentication (2FA) and attach a recovery email/phone once your OTP code is verified.
+            </li>
+          </ul>
         </div>
 
-        <!-- How to Use / Safety Guide Card -->
-        <div class="card" id="guide-card">
-          <h2 style="font-size: 1.15rem; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
-            📘 How to Use & Safety Guide
-          </h2>
-          <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1.25rem;">
-            Follow this guide to set up your residential IPs and successfully complete your virtual SMS activations.
-          </p>
-
-          <div class="guide-section" style="margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1.25rem;">
-            <h3 style="font-size: 0.95rem; margin-bottom: 0.5rem; color: var(--text-primary); display: flex; align-items: center; gap: 0.35rem;">
-              🌐 Static Residential IPs (CyberYozh)
-            </h3>
-            <ul style="font-size: 0.8rem; color: var(--text-secondary); padding-left: 1.25rem; line-height: 1.5; margin: 0;">
-              <li style="margin-bottom: 0.35rem;">
-                <strong>What they are:</strong> Dedicated home-broadband connections that do not rotate, keeping your location fixed for 30 days. Perfect for PayPal, Stripe, remote work, or server access.
-              </li>
-              <li style="margin-bottom: 0.35rem;">
-                <strong>SOCKS5 Connection (Laptops / Desktops):</strong> Use a browser extension like <strong>SwitchyOmega</strong> or a system-wide proxy switcher like <strong>Proxifier</strong>. Simply enter the provided IP, Port, Username, and Password in the proxy settings.
-              </li>
-              <li style="margin-bottom: 0.35rem;">
-                <strong>WireGuard Tunnel:</strong> Download the WireGuard app, click "Add Tunnel", and paste the provided configuration text. This routes all network traffic securely.
-              </li>
-              <li style="margin-bottom: 0.35rem;">
-                <span style="color: var(--cyan-text); font-weight: bold;">💡 Safe Practice:</span> Match your proxy country and ISP selection to the exact location requested by your target platform. Keep your credentials private to avoid speed degradation.
-              </li>
-            </ul>
-          </div>
-
-          <div class="guide-section">
-            <h3 style="font-size: 0.95rem; margin-bottom: 0.5rem; color: var(--text-primary); display: flex; align-items: center; gap: 0.35rem;">
-              📱 Virtual SMS OTP Verification (5SIM)
-            </h3>
-            <ul style="font-size: 0.8rem; color: var(--text-secondary); padding-left: 1.25rem; line-height: 1.5; margin: 0;">
-              <li style="margin-bottom: 0.35rem;">
-                <strong>How it works:</strong> Temporary numbers leased for 10-15 minutes to receive activation codes.
-              </li>
-              <li style="margin-bottom: 0.35rem; color: var(--emerald-text); font-weight: bold;">
-                ⚡ Select Higher Signals (Ratings): When choosing a carrier/operator, always pick the operator showing the highest success rate badge (e.g. 80% or higher). This ensures the carrier has a high probability of successfully receiving and delivering the OTP for your selected service.
-              </li>
-              <li style="margin-bottom: 0.35rem;">
-                <strong>Automatic Refund Protection:</strong> If the OTP code does not arrive within the 10-15 minute lease window, the order will cancel automatically, and the lease cost will be refunded instantly back to your wallet.
-              </li>
-              <li style="margin-bottom: 0.35rem;">
-                <strong>Pro Tip:</strong> If one operator does not receive the code within 2 to 3 minutes, click "Cancel Number" (which is completely free) and buy another number using a different high-signal operator.
-              </li>
-            </ul>
+        <!-- Longevity & Best Practice Callout -->
+        <div class="guide-callout-box">
+          <span style="font-size: 1.25rem; flex-shrink: 0;">💡</span>
+          <div>
+            <strong style="color: #fff;">Best Practice:</strong> Access target services through desktop web or antidetect browsers (such as AdsPower, Dolphin{anty}, Multilogin, or GoLogin with SwitchyOmega) rather than mobile apps for maximum account longevity and a pristine 0% fraud score.
           </div>
         </div>
-
       </div>
-    </main>
+    </section>
+
+  </main>
+
+
+  <!-- ====================================================
+       RENT PROXY MODAL (CyberYozh Selection)
+  ==================================================== -->
+  <div class="modal-overlay" id="rent-proxy-modal">
+    <div class="modal-card">
+      <button class="modal-close-btn" id="close-rent-proxy-modal-btn">&times;</button>
+      <h2 class="modal-title">Rent Static Residential IP</h2>
+
+      <div class="form-group">
+        <label class="form-label" for="modal-proxy-country">1. Select Target Country</label>
+        <input type="text" id="modal-proxy-country-search" class="form-input" placeholder="🔍 Search country..." style="margin-bottom: 0.4rem; font-size: 0.85rem;">
+        <select class="form-select" id="modal-proxy-country">
+          <!-- Filled dynamically -->
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="modal-proxy-isp">2. Select Broadband ISP Carrier</label>
+        <select class="form-select" id="modal-proxy-isp">
+          <!-- Filled dynamically -->
+        </select>
+      </div>
+
+      <div style="background: #0d1726; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.85rem 1rem; margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-size: 0.85rem; color: var(--text-secondary);">30-Day Lease Price:</span>
+        <span id="modal-proxy-price-display" style="font-size: 1.15rem; font-weight: 800; color: var(--emerald-text); font-family: var(--font-mono);">₦15,000</span>
+      </div>
+
+      <button class="btn-primary" id="confirm-buy-proxy-btn" style="width: 100%; padding: 0.75rem;">
+        Rent Static IP
+      </button>
+    </div>
   </div>
 
-  <!-- Top-Up Wallet Modal -->
+
+  <!-- ====================================================
+       TOP-UP WALLET MODAL (Korapay)
+  ==================================================== -->
   <div class="modal-overlay" id="topup-modal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3 style="font-weight: 700;">Fund Wallet (Korapay)</h3>
-        <button class="modal-close" id="close-topup-btn">&times;</button>
+    <div class="modal-card">
+      <button class="modal-close-btn" id="close-topup-btn">&times;</button>
+      <h2 class="modal-title">Fund Wallet (Naira)</h2>
+
+      <div class="form-group">
+        <label class="form-label" for="deposit-amount">Amount in Naira (NGN)</label>
+        <input class="form-input" type="number" id="deposit-amount" placeholder="e.g. 15000" min="500">
       </div>
-      <div class="input-group">
-        <label class="input-label" for="deposit-amount">Amount (NGN)</label>
-        <input class="input-control" type="number" id="deposit-amount" placeholder="e.g. 15000" min="500">
+
+      <div style="background: rgba(245, 158, 11, 0.1); border-left: 4px solid var(--amber); padding: 0.75rem; border-radius: var(--radius-sm); margin-bottom: 1.25rem; font-size: 0.75rem; color: var(--text-secondary); line-height: 1.4;">
+        <strong style="color: var(--amber);">🔒 Wallet Policy:</strong> Funds deposited into ProxyVault are strictly for service purchases on the platform. Direct bank/crypto cash-outs are not supported.
       </div>
-      <button class="btn btn-primary" id="deposit-submit-btn" style="width: 100%;">Proceed to Payment</button>
+
+      <button class="btn-primary" id="deposit-submit-btn" style="width: 100%; padding: 0.75rem;">
+        Proceed to Secure Payment
+      </button>
+    </div>
+  </div>
+
+
+  <!-- ====================================================
+       5SIM SETTINGS MODAL (Exact Reference Layout)
+  ==================================================== -->
+  <div class="modal-overlay" id="settings-modal">
+    <div class="modal-card" style="max-width: 440px;">
+      <button class="modal-close-btn" id="close-settings-modal-btn">&times;</button>
       
-      <!-- Wallet Policy Notice Banner -->
-      <div style="background-color: rgba(245, 158, 11, 0.1); border-left: 4px solid #f59e0b; padding: 0.75rem; margin-top: 1rem; border-radius: 4px; text-align: left;">
-        <p style="font-size: 0.75rem; color: #d97706; font-weight: bold; margin: 0 0 0.25rem 0;">🔒 Wallet Policy Notice</p>
-        <p style="font-size: 0.7rem; color: var(--text-muted); margin: 0; line-height: 1.4;">
-          <strong>Non-Refundable Balance:</strong> Funds deposited into ProxyVault are strictly for service usage within the platform. <strong>Direct withdrawals or cash-outs to bank accounts/crypto wallets are not supported.</strong>
-        </p>
-      </div>
-
-      <p style="font-size: 0.75rem; color: var(--text-muted); text-align: center; margin-top: 1rem;">
-        Pay securely with Debit Card, USSD or Bank Transfer via Korapay.
-      </p>
-    </div>
-  </div>
-
-  <!-- Terms of Service Modal Overlay (hidden by default) -->
-  <div class="modal-overlay" id="dashboard-tos-modal">
-    <div class="modal-content" style="max-width: 600px; max-height: 80vh; overflow-y: auto;">
-      <div class="modal-header">
-        <h3 style="font-weight: 700;">Terms of Service</h3>
-        <button class="modal-close" id="close-tos-btn">&times;</button>
-      </div>
-      <div style="font-size: 0.85rem; line-height: 1.6; color: var(--text-secondary); text-align: left;">
-        <p style="margin-bottom: 1rem;">Welcome to ProxyVault. By using our services, you agree to comply with and be bound by the following terms and conditions.</p>
-        
-        <h3 style="font-weight: 600; color: var(--text-primary); margin-top: 1.25rem; margin-bottom: 0.5rem;">1. Service Usage</h3>
-        <p style="margin-bottom: 1rem;">Our static residential SOCKS5 proxies and virtual global phone numbers are provided for legitimate professionals. Any abuse or illegal activities will result in immediate termination of the account without refund.</p>
-        
-        <h3 style="font-weight: 600; color: var(--text-primary); margin-top: 1.25rem; margin-bottom: 0.5rem;">2. Wallet & Deposit Policy</h3>
-        <div style="background-color: rgba(245, 158, 11, 0.1); border-left: 4px solid #f59e0b; padding: 0.75rem; margin-top: 0.5rem; margin-bottom: 1rem; border-radius: 4px;">
-          <p style="font-size: 0.8rem; color: #d97706; font-weight: bold; margin: 0 0 0.25rem 0;">🔒 Wallet Policy Notice</p>
-          <p style="font-size: 0.75rem; color: var(--text-muted); margin: 0; line-height: 1.4;">
-            <strong>Non-Refundable Balance:</strong> Funds deposited into ProxyVault are strictly for service usage within the platform. <strong>Direct withdrawals or cash-outs to bank accounts/crypto wallets are not supported.</strong>
-          </p>
+      <!-- Top Info Card -->
+      <div class="settings-user-card">
+        <div class="settings-user-indicator"></div>
+        <div class="settings-user-meta">
+          <div class="settings-id-row">
+            <span>#<span id="settings-user-id">4355195</span></span>
+            <button class="copy-icon-btn" id="settings-copy-id-btn" title="Copy User ID">📋</button>
+          </div>
+          <div class="settings-email-val" id="settings-user-email">user@gmail.com</div>
         </div>
-        
-        <h3 style="font-weight: 600; color: var(--text-primary); margin-top: 1.25rem; margin-bottom: 0.5rem;">3. Disputed Orders & Refunds</h3>
-        <p style="margin-bottom: 1rem;">If you experience any issues with SMS verification delivery or proxy connectivity, please contact support with details including Order ID and screenshots/recordings within the specified lease window.</p>
       </div>
+
+      <!-- Operator by Default -->
+      <div class="settings-section-row">
+        <div>
+          <div class="settings-section-label">Operator by default</div>
+          <div class="settings-section-val" id="settings-default-operator-text">Any operator</div>
+        </div>
+        <button class="btn-pill-action" id="settings-add-operator-btn">Add</button>
+      </div>
+
+      <!-- Banned Numbers -->
+      <div class="settings-section-row" style="margin-bottom: 1.5rem;">
+        <div class="settings-section-val">Banned numbers</div>
+        <button class="btn-pill-danger" id="settings-clear-banned-btn">
+          Clear all 🗑
+        </button>
+      </div>
+
+      <!-- Change Password Form -->
+      <div class="password-input-wrapper">
+        <input type="password" class="password-input-field" id="settings-old-password" placeholder="Old password">
+        <button type="button" class="password-eye-toggle" data-target="#settings-old-password" title="Toggle password visibility">👁</button>
+      </div>
+
+      <div class="password-input-wrapper">
+        <input type="password" class="password-input-field" id="settings-new-password" placeholder="Password">
+        <button type="button" class="password-eye-toggle" data-target="#settings-new-password" title="Toggle password visibility">👁</button>
+      </div>
+
+      <div class="password-input-wrapper">
+        <input type="password" class="password-input-field" id="settings-repeat-password" placeholder="Repeat password">
+        <button type="button" class="password-eye-toggle" data-target="#settings-repeat-password" title="Toggle password visibility">👁</button>
+      </div>
+
+      <button class="btn-change-password-submit" id="settings-change-password-btn">
+        Change password
+      </button>
+
+      <!-- Delete Account Action -->
+      <button class="btn-delete-account-submit" id="settings-delete-account-btn">
+        Delete account ⚠️
+      </button>
     </div>
   </div>
 
-
+  <!-- ====================================================
+       TERMS OF SERVICE MODAL
+  ==================================================== -->
+  <div class="modal-overlay" id="dashboard-tos-modal">
+    <div class="modal-card" style="max-height: 80vh; overflow-y: auto;">
+      <button class="modal-close-btn" id="close-tos-btn">&times;</button>
+      <h2 class="modal-title">Terms of Service</h2>
+      <div style="font-size: 0.85rem; line-height: 1.6; color: var(--text-secondary);">
+        <p style="margin-bottom: 1rem;">Welcome to ProxyVault. By using our platform, you agree to comply with all terms and legitimate use policies.</p>
+        <h3 style="color: #fff; font-size: 0.95rem; margin-top: 1rem; margin-bottom: 0.35rem;">1. Legitimate Usage</h3>
+        <p style="margin-bottom: 1rem;">Our static residential proxies and virtual phone numbers are provided for developers and professionals. Illegal activities result in immediate account termination.</p>
+        <h3 style="color: #fff; font-size: 0.95rem; margin-top: 1rem; margin-bottom: 0.35rem;">2. Non-Refundable Balance</h3>
+        <p style="margin-bottom: 1rem;">Deposits are non-refundable and strictly for platform resource allocations.</p>
+      </div>
+    </div>
+  </div>
 
   <!-- Floating Telegram Support Button -->
-  <a href="https://t.me/ProxyvaultsupportBot" target="_blank" class="floating-support-btn" title="Chat with Support">
+  <a href="https://t.me/ProxyvaultsupportBot" target="_blank" rel="noopener noreferrer" class="floating-support-btn" title="Chat with Support">
     <span>💬 Contact Support</span>
   </a>
 
+  <!-- Toast Notification Container -->
   <div class="toast-container" id="toast-container"></div>
 
-  <!-- Link app.js -->
+  <!-- Core Dashboard Client Script -->
   <script src="js/app.js"></script>
 </body>
 </html>

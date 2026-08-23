@@ -19,6 +19,7 @@
     "resend": "^6.18.1"
   },
   "devDependencies": {
+    "mongodb-memory-server": "^11.2.0",
     "nodemon": "^3.1.4"
   }
 }
