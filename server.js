@@ -1645,13 +1645,34 @@ async function handleTelegramUpdate(update) {
     // 1. Handle user private chat messages
     if (update.message && update.message.chat.type === 'private') {
       const chat = update.message.chat;
-      const text = update.message.text;
+      const text = update.message.text ? update.message.text.trim() : '';
       const userId = chat.id;
 
-      // Handle start command
-      if (text === '/start' || text === '/help') {
-        console.log(`Received /start command from User ID: ${userId} (${chat.username || 'No username'})`);
-        await sendTelegramMessage(userId, `🇳🇬 *Welcome to ProxyVault Support Desk!*\n\nHow can we help you today? Please tap one of the guides below or simply type your support question directly.`, {
+      // Handle start and help commands (including deep link /start support)
+      if (text.startsWith('/start') || text.startsWith('/help')) {
+        console.log(`Received start/help command from User ID: ${userId} (${chat.username || 'No username'})`);
+        const welcomeHelpText =
+`👋 *Welcome to ProxyVault NG Official Support!*
+
+Here is quick guidance for our core services:
+
+🌐 *DEDICATED STATIC RESIDENTIAL IPS*
+• Clean, dedicated ISP lines (USA, UK, CA, DE) with 0% fraud score.
+• Supported Protocols: HTTP & SOCKS5 (Copy connection string directly from dashboard).
+• Device Limit: Connect a maximum of 3 concurrent devices per IP.
+• Longevity Tip: Access target platforms via desktop/antidetect web browsers rather than mobile apps for optimal stability.
+
+📱 *VIRTUAL SMS OTP NUMBERS*
+• Instant international verification codes for WhatsApp, Telegram, ChatGPT, Facebook, etc.
+• 100% Auto-Refund: If the SMS code does not arrive within the countdown timer, the rental fee is automatically refunded back to your Naira wallet immediately.
+• Security Best Practice: Enable 2FA and bind your personal recovery email immediately after verification.
+
+💳 *NAIRA WALLET TOP-UPS*
+• Automated instant credit via Korapay (Debit Card, Bank Transfer, USSD).
+
+Need human assistance? Reply directly to this message and an agent will join your session shortly.`;
+
+        await sendTelegramMessage(userId, welcomeHelpText, {
           inline_keyboard: [
             [
               { text: '🌐 Proxy Setup Guide', callback_data: 'guide_proxy' },
@@ -1660,9 +1681,6 @@ async function handleTelegramUpdate(update) {
             [
               { text: '💳 Deposit & Billing Info', callback_data: 'guide_billing' },
               { text: '💬 Speak to Human', callback_data: 'speak_human' }
-            ],
-            [
-              { text: '⚠️ Dispute & Refund Guidelines', callback_data: 'guide_refund' }
             ]
           ]
         });
@@ -1696,7 +1714,11 @@ async function handleTelegramUpdate(update) {
         // 1. NEW SESSION: Send ticket headers & forward message directly
         console.log(`Relaying NEW support ticket from user ${userId} to admin group ${adminGroupChatId}`);
         const headerText = `🎫 *NEW SUPPORT TICKET*\n👤 *User:* ${userName}\n🏷️ *Handle:* ${usernameHandle}\n🆔 *Telegram ID:* \`${userId}\``;
-        await sendTelegramMessage(adminGroupChatId, headerText);
+        await sendTelegramMessage(adminGroupChatId, headerText, {
+          inline_keyboard: [
+            [{ text: '❌ End Session', callback_data: `close_session_${userId}` }]
+          ]
+        });
 
         const copyRes = await axios.post(`https://api.telegram.org/bot${token}/copyMessage`, {
           chat_id: adminGroupChatId,
@@ -1762,6 +1784,27 @@ async function handleTelegramUpdate(update) {
         callback_query_id: cb.id
       });
 
+      if (data.startsWith('close_session_')) {
+        const targetUserId = data.replace('close_session_', '');
+        try {
+          const endUserMessage = "✅ *Ticket Resolved*\n\nYour support session has been closed by an agent. If you need assistance again, simply type a new message or send `/start`. Thank you for using ProxyVault!";
+          await sendTelegramMessage(targetUserId, endUserMessage);
+
+          if (adminGroupChatId) {
+            await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, {
+              chat_id: adminGroupChatId,
+              text: `🔒 *Ticket for User ID ${targetUserId} has been marked closed.*`
+            });
+          }
+
+          await TelegramTicketMapping.deleteMany({ user_telegram_id: targetUserId });
+          await TelegramSupportSession.deleteOne({ user_telegram_id: targetUserId });
+        } catch (closeErr) {
+          console.error('Error executing session close callback:', closeErr.message);
+        }
+        return;
+      }
+
       if (data === 'guide_proxy') {
         await sendTelegramMessage(userId, `🌐 *Proxy Setup Guide*\n\n1. For laptops/desktops, enter the SOCKS5 proxy IP, Port, Username, and Password in SwitchyOmega (browser) or Proxifier.\n2. For WireGuard, download the WireGuard client, click 'Add Tunnel', and paste the configuration profile.\n3. Make sure to choose the correct target country and resident carrier.`);
       } else if (data === 'guide_sms') {
@@ -1785,8 +1828,8 @@ async function handleTelegramUpdate(update) {
       if (mapping) {
         const userChatId = mapping.user_telegram_id;
 
-        // Check if the reply is a ticket closure command
-        if (text === '/close' || text === '/resolve') {
+        // Check if the reply is a ticket closure command (/close, /end, /resolve)
+        if (text === '/close' || text === '/resolve' || text === '/end') {
           console.log(`Admin requested closure for ticket associated with User ID: ${userChatId}`);
           try {
             // 1. Send closure message to customer

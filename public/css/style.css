@@ -400,6 +400,28 @@ body {
   color: var(--red);
 }
 
+/* Universal Dropdown Popovers & Z-Index Safeguards */
+.dropdown-container, .form-select-wrapper {
+  position: relative;
+  width: 100%;
+  z-index: 20;
+}
+
+.dropdown-menu-popover {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  margin-top: 0.35rem;
+  max-height: 15rem; /* max-h-60 */
+  overflow-y: auto;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: #0f1826;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.65);
+  z-index: 50;
+}
+
 /* ----------------------------------------------------
    MOBILE DRAWER SIDEBAR
 ---------------------------------------------------- */
