@@ -856,15 +856,34 @@ app.get('/api/v1/sms/catalog', requireAuth, async (req, res) => {
 
 const FX_MARKUP_NAIRA = process.env.FX_MARKUP_NAIRA !== undefined ? parseFloat(process.env.FX_MARKUP_NAIRA) : 40;
 const SMS_MARKUP_MULTIPLIER = parseFloat(process.env.SMS_MARKUP_MULTIPLIER) || 1.55;
-let cachedBaseExchangeRate = parseFloat(process.env.USD_NGN_EXCHANGE_RATE) || 1581; // Base fallback rate
+let cachedBaseExchangeRate = 1345.62; // Live bank rate fallback
 let lastRateFetchTime = 0;
 const RATE_CACHE_DURATION_MS = 30 * 60 * 1000; // Cache exchange rate for 30 minutes
 
 async function getUsdNgnExchangeRate() {
-  // Option 3: Base exchange rate (₦1,581) + FX buffer (₦40) = ₦1,621
-  const baseRate = parseFloat(process.env.USD_NGN_EXCHANGE_RATE) || 1581;
-  const markup = process.env.FX_MARKUP_NAIRA !== undefined ? parseFloat(process.env.FX_MARKUP_NAIRA) : 40;
-  return baseRate + markup;
+  // Option 1: Live Bank FX Rate + ₦40 Buffer
+  if (process.env.USD_NGN_EXCHANGE_RATE && process.env.USD_NGN_EXCHANGE_RATE.trim() !== '') {
+    const customBase = parseFloat(process.env.USD_NGN_EXCHANGE_RATE);
+    return customBase + FX_MARKUP_NAIRA;
+  }
+
+  if (Date.now() - lastRateFetchTime < RATE_CACHE_DURATION_MS && lastRateFetchTime > 0) {
+    return cachedBaseExchangeRate + FX_MARKUP_NAIRA;
+  }
+
+  try {
+    const res = await axios.get('https://open.er-api.com/v6/latest/USD', { timeout: 4000 });
+    if (res.data && res.data.rates && res.data.rates.NGN) {
+      cachedBaseExchangeRate = Math.round(res.data.rates.NGN * 100) / 100;
+      lastRateFetchTime = Date.now();
+      const effectiveRate = cachedBaseExchangeRate + FX_MARKUP_NAIRA;
+      console.log(`[FX ENGINE] Option 1 Live Bank Rate: ₦${cachedBaseExchangeRate} | Effective Rate (+₦${FX_MARKUP_NAIRA}): ₦${effectiveRate}`);
+    }
+  } catch (err) {
+    console.error(`[FX ENGINE] Failed to fetch live exchange rate, using benchmark: ₦${cachedBaseExchangeRate}`, err.message);
+  }
+
+  return cachedBaseExchangeRate + FX_MARKUP_NAIRA;
 }
 
 // Get available operators for country and platform with success ratings and dynamic pricing
