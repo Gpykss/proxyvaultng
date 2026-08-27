@@ -855,7 +855,7 @@ app.get('/api/v1/sms/catalog', requireAuth, async (req, res) => {
 });
 
 const FX_MARKUP_NAIRA = process.env.FX_MARKUP_NAIRA !== undefined ? parseFloat(process.env.FX_MARKUP_NAIRA) : 0;
-const SMS_MARKUP_MULTIPLIER = parseFloat(process.env.SMS_MARKUP_MULTIPLIER) || 1.45;
+const SMS_MARKUP_MULTIPLIER = parseFloat(process.env.SMS_MARKUP_MULTIPLIER) || 1.55;
 let cachedBaseExchangeRate = parseFloat(process.env.USD_NGN_EXCHANGE_RATE) || 1581; // Base fallback rate
 let lastRateFetchTime = 0;
 const RATE_CACHE_DURATION_MS = 30 * 60 * 1000; // Cache exchange rate for 30 minutes
