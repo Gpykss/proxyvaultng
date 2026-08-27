@@ -28,19 +28,32 @@ async function rentNumber(service, country = 'usa', operator = 'any') {
       expires_at: new Date(Date.now() + 15 * 60 * 1000) // 15 mins expiry
     };
   } else {
-    // Production Mode: call 5SIM API connecting to selected country and operator endpoint
+    // Production Mode: call upstream virtual number allocation
     const apiKey = process.env.SMS_5SIM_API_KEY;
     try {
-      // 5SIM Rent Activation API: GET /v1/user/buy/activation/{country}/{operator}/{service}
-      const response = await axios.get(`https://5sim.net/v1/user/buy/activation/${country.toLowerCase()}/${operator.toLowerCase()}/${service}`, {
+      const cCode = encodeURIComponent(country.toLowerCase());
+      const oCode = encodeURIComponent(operator.toLowerCase());
+      const sCode = encodeURIComponent(service.toLowerCase());
+
+      const response = await axios.get(`https://5sim.net/v1/user/buy/activation/${cCode}/${oCode}/${sCode}`, {
         headers: {
           'Authorization': `Bearer ${apiKey}`,
           'Accept': 'application/json'
-        }
+        },
+        timeout: 15000
       });
 
+      // Check if upstream returned a plain text response like 'no free phones'
+      if (typeof response.data === 'string') {
+        const lowerText = response.data.toLowerCase();
+        if (lowerText.includes('no free') || lowerText.includes('nofree')) {
+          throw new Error('No free numbers available for this operator. Please select another operator with available numbers.');
+        }
+        throw new Error(formatUpstreamError(null, response.data));
+      }
+
       if (!response.data || !response.data.id) {
-        throw new Error(response.data ? response.data.error || 'Empty or invalid response from 5SIM' : 'Empty response from 5SIM');
+        throw new Error(formatUpstreamError(null, response.data));
       }
 
       return {
@@ -49,13 +62,40 @@ async function rentNumber(service, country = 'usa', operator = 'any') {
         expires_at: response.data.expires ? new Date(response.data.expires) : new Date(Date.now() + 15 * 60 * 1000)
       };
     } catch (error) {
-      console.error('5SIM API error:', error.message);
-      const errMsg = error.response && error.response.data
-        ? (typeof error.response.data === 'string' ? error.response.data : JSON.stringify(error.response.data))
-        : error.message;
-      throw new Error(errMsg);
+      console.error('Virtual number allocation error:', error.message);
+      const rawData = error.response ? error.response.data : null;
+      throw new Error(formatUpstreamError(error, rawData));
     }
   }
+}
+
+/**
+ * Format and sanitize upstream provider errors so vendor names and HTML are never leaked
+ */
+function formatUpstreamError(error, rawData) {
+  const dataStr = typeof rawData === 'string' ? rawData : (rawData ? JSON.stringify(rawData) : '');
+  const lower = dataStr.toLowerCase();
+
+  if (lower.includes('no free') || lower.includes('no_free') || lower.includes('nofree')) {
+    return 'No free numbers available for this operator. Please select another operator with available numbers.';
+  }
+  // Sanitize HTML responses (like Next.js 404 error pages) first before checking words
+  if (dataStr.includes('<html') || dataStr.includes('<!DOCTYPE') || dataStr.includes('NEXT_HTTP_ERROR')) {
+    return 'Selected operator is currently unavailable. Please choose another operator with active numbers.';
+  }
+  if (lower.includes('not enough') || lower.includes('balance') || lower.includes('low_balance')) {
+    return 'Service allocation temporarily unavailable due to upstream replenishment. Please try again in a few moments.';
+  }
+  if (rawData && typeof rawData === 'object' && rawData.error) {
+    return String(rawData.error).replace(/5sim/gi, 'SMS Provider');
+  }
+  if (error && error.message) {
+    if (error.message.includes('No free numbers available')) {
+      return error.message;
+    }
+    return String(error.message).replace(/5sim/gi, 'SMS Provider');
+  }
+  return 'Failed to allocate virtual number. Please select another operator.';
 }
 
 /**

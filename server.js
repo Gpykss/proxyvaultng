@@ -895,30 +895,29 @@ app.get('/api/v1/sms/operators', requireAuth, async (req, res) => {
 
   const operatorsData = {
     usa: [
-      { operator_name: 'T-Mobile', success_rate: 98.0, stock_count: 12543, price_ngn: 1500, isBest: true },
-      { operator_name: 'AT&T', success_rate: 94.0, stock_count: 5432, price_ngn: 1500 },
-      { operator_name: 'Verizon', success_rate: 88.0, stock_count: 2123, price_ngn: 1500 },
-      { operator_name: 'Virtual28', success_rate: 43.9, stock_count: 25453, price_ngn: 1200 }
+      { operator_name: 'Virtual28', success_rate: 92.0, stock_count: 18500, price_ngn: 1500, isBest: true },
+      { operator_name: 'Virtual8', success_rate: 85.0, stock_count: 124000, price_ngn: 1500 },
+      { operator_name: 'Virtual63', success_rate: 78.0, stock_count: 5000, price_ngn: 1200 },
+      { operator_name: 'Any', success_rate: 95.0, stock_count: 150000, price_ngn: 1500 }
     ],
     canada: [
-      { operator_name: 'Rogers', success_rate: 97.0, stock_count: 8743, price_ngn: 1500, isBest: true },
-      { operator_name: 'Bell', success_rate: 91.0, stock_count: 3122, price_ngn: 1500 },
-      { operator_name: 'Telus', success_rate: 89.0, stock_count: 1943, price_ngn: 1500 }
+      { operator_name: 'Virtual28', success_rate: 91.0, stock_count: 8743, price_ngn: 1500, isBest: true },
+      { operator_name: 'Any', success_rate: 95.0, stock_count: 15000, price_ngn: 1500 }
     ],
     england: [
-      { operator_name: 'EE Mobile', success_rate: 99.0, stock_count: 15432, price_ngn: 1500, isBest: true },
-      { operator_name: 'Vodafone', success_rate: 93.0, stock_count: 6732, price_ngn: 1500 },
-      { operator_name: 'O2 Mobile', success_rate: 87.0, stock_count: 4213, price_ngn: 1500 }
+      { operator_name: 'Virtual59', success_rate: 94.0, stock_count: 15432, price_ngn: 1500, isBest: true },
+      { operator_name: 'Virtual58', success_rate: 88.0, stock_count: 6732, price_ngn: 1500 },
+      { operator_name: 'Any', success_rate: 96.0, stock_count: 25000, price_ngn: 1500 }
     ],
     germany: [
-      { operator_name: 'Deutsche Telekom', success_rate: 96.0, stock_count: 11432, price_ngn: 1500, isBest: true },
-      { operator_name: 'Vodafone DE', success_rate: 92.0, stock_count: 5421, price_ngn: 1500 },
-      { operator_name: 'O2 Germany', success_rate: 85.0, stock_count: 2843, price_ngn: 1500 }
+      { operator_name: 'Virtual28', success_rate: 92.0, stock_count: 11432, price_ngn: 1500, isBest: true },
+      { operator_name: 'Any', success_rate: 95.0, stock_count: 20000, price_ngn: 1500 }
     ],
     nigeria: [
       { operator_name: 'MTN', success_rate: 95.0, stock_count: 24512, price_ngn: 1500, isBest: true },
       { operator_name: 'Airtel', success_rate: 91.0, stock_count: 12431, price_ngn: 1500 },
-      { operator_name: 'Globacom', success_rate: 78.0, stock_count: 5312, price_ngn: 1000 }
+      { operator_name: 'Globacom', success_rate: 78.0, stock_count: 5312, price_ngn: 1000 },
+      { operator_name: 'Any', success_rate: 95.0, stock_count: 50000, price_ngn: 1500 }
     ]
   };
 
@@ -930,7 +929,12 @@ app.get('/api/v1/sms/operators', requireAuth, async (req, res) => {
       success_rate: op.success_rate,
       stock_count: op.stock_count,
       price_ngn: Math.ceil(fixedRetailPrice * (op.operator_name === 'Virtual28' ? 0.8 : 1.0))
-    })).sort((a, b) => b.success_rate - a.success_rate);
+    })).sort((a, b) => {
+      const aHasStock = a.stock_count > 0 ? 1 : 0;
+      const bHasStock = b.stock_count > 0 ? 1 : 0;
+      if (bHasStock !== aHasStock) return bHasStock - aHasStock;
+      return b.success_rate - a.success_rate;
+    });
 
     return res.json({ operators: mapped });
   }
@@ -939,7 +943,7 @@ app.get('/api/v1/sms/operators', requireAuth, async (req, res) => {
     const apiKey = process.env.SMS_5SIM_API_KEY;
     const response = await axios.get(`https://5sim.net/v1/guest/prices?product=${targetService}&country=${targetCountry}`, {
       headers: apiKey ? { 'Authorization': `Bearer ${apiKey}`, 'Accept': 'application/json' } : { 'Accept': 'application/json' },
-      timeout: 5000
+      timeout: 10000
     });
     
     const dataObj = response.data || {};
@@ -952,16 +956,31 @@ app.get('/api/v1/sms/operators', requireAuth, async (req, res) => {
       const opInfo = serviceData[opName];
       const wholesaleUSD = opInfo.cost || 0.1;
       const retailNgn = Math.ceil((wholesaleUSD * 2) * adjustedRate);
+      const stockCount = typeof opInfo.count === 'number' ? opInfo.count : 0;
+      const rawRate = (opInfo.rate !== undefined && opInfo.rate !== null) ? Number(opInfo.rate) : null;
+      // Real signal / success rate: if numbers are in stock, use rate or fallback default; if 0 numbers, signal is 0
+      const successRate = stockCount > 0 ? (rawRate !== null ? rawRate : 50.0) : 0.0;
 
       return {
         operator_name: opName,
-        success_rate: opInfo.rate || 50.0,
-        stock_count: opInfo.count || 0,
+        success_rate: Math.round(successRate * 10) / 10,
+        stock_count: stockCount,
         price_ngn: retailNgn
       };
     });
 
-    operators.sort((a, b) => b.success_rate - a.success_rate);
+    // Rank according to vendor standard:
+    // 1. Available free numbers first (stock_count > 0)
+    // 2. Highest signal / success rate first (success_rate descending)
+    // 3. Zero numbers available placed at bottom
+    operators.sort((a, b) => {
+      const aHasStock = a.stock_count > 0 ? 1 : 0;
+      const bHasStock = b.stock_count > 0 ? 1 : 0;
+      if (bHasStock !== aHasStock) {
+        return bHasStock - aHasStock;
+      }
+      return b.success_rate - a.success_rate;
+    });
 
     if (operators.length === 0) {
       const list = operatorsData[targetCountry.toLowerCase()] || operatorsData.usa;
@@ -971,13 +990,18 @@ app.get('/api/v1/sms/operators', requireAuth, async (req, res) => {
         success_rate: op.success_rate,
         stock_count: op.stock_count,
         price_ngn: Math.ceil(fixedRetailPrice * (op.operator_name === 'Virtual28' ? 0.8 : 1.0))
-      })).sort((a, b) => b.success_rate - a.success_rate);
+      })).sort((a, b) => {
+        const aHasStock = a.stock_count > 0 ? 1 : 0;
+        const bHasStock = b.stock_count > 0 ? 1 : 0;
+        if (bHasStock !== aHasStock) return bHasStock - aHasStock;
+        return b.success_rate - a.success_rate;
+      });
       return res.json({ operators: mapped });
     }
 
     res.json({ operators });
   } catch (err) {
-    console.error('5SIM operators API error, falling back to Simulation:', err.message);
+    console.error('Operators API error, falling back to cached/default dataset:', err.message);
     const list = operatorsData[targetCountry.toLowerCase()] || operatorsData.usa;
     const fixedRetailPrice = (SMS_PRICES_KOBO[targetService] || 150000) / 100;
     const mapped = list.map(op => ({
@@ -985,7 +1009,12 @@ app.get('/api/v1/sms/operators', requireAuth, async (req, res) => {
       success_rate: op.success_rate,
       stock_count: op.stock_count,
       price_ngn: Math.ceil(fixedRetailPrice * (op.operator_name === 'Virtual28' ? 0.8 : 1.0))
-    })).sort((a, b) => b.success_rate - a.success_rate);
+    })).sort((a, b) => {
+      const aHasStock = a.stock_count > 0 ? 1 : 0;
+      const bHasStock = b.stock_count > 0 ? 1 : 0;
+      if (bHasStock !== aHasStock) return bHasStock - aHasStock;
+      return b.success_rate - a.success_rate;
+    });
     res.json({ operators: mapped });
   }
 });
@@ -1170,6 +1199,19 @@ app.post('/api/proxy/rent', requireAuth, async (req, res) => {
   }
 });
 
+// Provide clean handlers for GET /api/proxy/rent to prevent 404 Cannot GET
+app.get(['/api/proxy/rent', '/api/proxies/rent'], (req, res) => {
+  if (req.accepts('html') && !req.xhr) {
+    return res.redirect('/dashboard.html#proxies');
+  }
+  res.json({
+    status: 'active',
+    endpoint: '/api/proxy/rent',
+    method: 'POST',
+    description: 'Proxy allocation endpoint. Send a POST request with { country, carrier } to rent a residential proxy.'
+  });
+});
+
 // Fetch active proxy leases
 app.get('/api/proxy/leases', requireAuth, async (req, res) => {
   try {
@@ -1295,7 +1337,7 @@ app.post('/api/sms/rent', requireAuth, async (req, res) => {
     } catch (provisionErr) {
       // Refund user on upstream failure
       await User.findByIdAndUpdate(req.session.userId, { $inc: { balance: costKobo } });
-      throw new Error(`Upstream SMS acquisition failed: ${provisionErr.message}`);
+      throw new Error(provisionErr.message || 'Failed to allocate virtual number. Please select another operator.');
     }
 
     // 3. Log transaction
@@ -1341,6 +1383,19 @@ app.post('/api/sms/rent', requireAuth, async (req, res) => {
     console.error('SMS activation error:', error.message);
     res.status(400).json({ error: error.message || 'Failed to rent virtual number.' });
   }
+});
+
+// Provide a clean handler for GET /api/sms/rent to prevent "Cannot GET /api/sms/rent"
+app.get('/api/sms/rent', (req, res) => {
+  if (req.accepts('html') && !req.xhr) {
+    return res.redirect('/dashboard.html#sms');
+  }
+  res.json({
+    status: 'active',
+    endpoint: '/api/sms/rent',
+    method: 'POST',
+    description: 'Virtual number provisioning endpoint. Send a POST request with { service, country, operator } to allocate a number.'
+  });
 });
 
 // Poll for OTP / Check SMS Status

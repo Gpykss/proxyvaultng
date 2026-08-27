@@ -928,33 +928,54 @@ async function loadStep3Operators() {
       const card = document.createElement('div');
       card.className = 'operator-card-item';
 
+      const hasFreeNumbers = (op.stock_count || 0) > 0;
+
       let badgeHtml = '';
-      if (index === 0) {
+      if (!hasFreeNumbers) {
+        card.classList.add('out-of-stock');
+        card.style.opacity = '0.6';
+        badgeHtml = '<span class="operator-badge-tag out-of-stock" style="background:rgba(244,63,94,0.12); color:#f43f5e; border:1px solid rgba(244,63,94,0.3);">NO FREE NUMBERS</span>';
+      } else if (index === 0) {
         badgeHtml = '<span class="operator-badge-tag">BEST RATE</span>';
-      } else if (op.operator_name === 'Virtual28' || op.price_ngn < data.operators[0].price_ngn) {
+      } else if (op.operator_name.toLowerCase() === 'virtual28' || op.price_ngn < data.operators[0].price_ngn) {
         badgeHtml = '<span class="operator-badge-tag low-price">LOW PRICE</span>';
       }
+
+      const signalDisplay = hasFreeNumbers
+        ? `✉️ ${op.success_rate}% success rate`
+        : `<span style="color:var(--text-muted); font-size:0.75rem;">⚠️ No numbers available</span>`;
+
+      const stockDisplay = hasFreeNumbers
+        ? `<div class="operator-stock-count">${op.stock_count.toLocaleString()} numbers</div>`
+        : `<div class="operator-stock-count" style="color:#f43f5e; font-weight:600;">No free numbers</div>`;
+
+      const buyButtonHtml = hasFreeNumbers
+        ? `<button class="operator-buy-btn" title="Rent Number from ${op.operator_name}">🛒</button>`
+        : `<button class="operator-buy-btn disabled" disabled title="No free numbers available for this operator" style="opacity:0.35; cursor:not-allowed; background:rgba(255,255,255,0.06); color:var(--text-muted);">✕</button>`;
 
       card.innerHTML = `
         ${badgeHtml}
         <div class="operator-info-col">
           <span class="operator-name">${op.operator_name}</span>
-          <span class="operator-signal-rate">✉️ ${op.success_rate}% success rate</span>
+          <span class="operator-signal-rate">${signalDisplay}</span>
         </div>
         <div class="operator-pricing-col">
           <div>
             <div class="operator-cost-naira">₦${(op.price_ngn || 1500).toLocaleString()}</div>
-            <div class="operator-stock-count">${(op.stock_count || 1000).toLocaleString()} numbers</div>
+            ${stockDisplay}
           </div>
-          <button class="operator-buy-btn" title="Rent Number from ${op.operator_name}">
-            🛒
-          </button>
+          ${buyButtonHtml}
         </div>
       `;
 
-      card.querySelector('.operator-buy-btn').addEventListener('click', () => {
-        executeSmsRent(currentStepService, currentStepCountry, op.operator_name, op.price_ngn || 1500);
-      });
+      if (hasFreeNumbers) {
+        const btn = card.querySelector('.operator-buy-btn');
+        if (btn) {
+          btn.addEventListener('click', () => {
+            executeSmsRent(currentStepService, currentStepCountry, op.operator_name, op.price_ngn || 1500);
+          });
+        }
+      }
 
       opList.appendChild(card);
     });
@@ -984,14 +1005,20 @@ async function executeSmsRent(service, country, operator, costNgn) {
       body: JSON.stringify({ service, country, operator })
     });
 
-    const data = await res.json();
+    let data;
+    try {
+      data = await res.json();
+    } catch {
+      data = { error: 'Failed to allocate virtual number. Please select an operator with free numbers.' };
+    }
 
     if (!res.ok) {
       if (currentUser) {
         currentUser.balance = originalBalance;
         updateBalanceDisplay(currentUser.balance);
       }
-      showToast(data.error || 'Failed to rent virtual number', 'error');
+      const errMessage = (data && data.error) ? String(data.error).replace(/5sim/gi, 'SMS Provider') : 'Failed to rent virtual number';
+      showToast(errMessage, 'error');
       return;
     }
 
