@@ -30,42 +30,72 @@ async function rentNumber(service, country = 'usa', operator = 'any') {
   } else {
     // Production Mode: call upstream virtual number allocation
     const apiKey = process.env.SMS_5SIM_API_KEY;
-    try {
-      const cCode = encodeURIComponent(country.toLowerCase());
-      const oCode = encodeURIComponent(operator.toLowerCase());
-      const sCode = encodeURIComponent(service.toLowerCase());
+    const cCode = encodeURIComponent(country.toLowerCase());
+    const oCode = encodeURIComponent(operator.toLowerCase());
+    const sCode = encodeURIComponent(service.toLowerCase());
 
-      const response = await axios.get(`https://5sim.net/v1/user/buy/activation/${cCode}/${oCode}/${sCode}`, {
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Accept': 'application/json'
-        },
-        timeout: 15000
-      });
+    async function tryAllocate(targetOp) {
+      try {
+        const response = await axios.get(`https://5sim.net/v1/user/buy/activation/${cCode}/${targetOp}/${sCode}`, {
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Accept': 'application/json'
+          },
+          timeout: 15000
+        });
 
-      // Check if upstream returned a plain text response like 'no free phones'
-      if (typeof response.data === 'string') {
-        const lowerText = response.data.toLowerCase();
-        if (lowerText.includes('no free') || lowerText.includes('nofree')) {
-          throw new Error('No free numbers available for this operator. Please select another operator with available numbers.');
+        // Plain text response like 'no free phones'
+        if (typeof response.data === 'string') {
+          const lowerText = response.data.toLowerCase();
+          if (lowerText.includes('no free') || lowerText.includes('nofree')) {
+            return { noFree: true };
+          }
+          return { error: formatUpstreamError(null, response.data) };
         }
-        throw new Error(formatUpstreamError(null, response.data));
-      }
 
-      if (!response.data || !response.data.id) {
-        throw new Error(formatUpstreamError(null, response.data));
-      }
+        if (response.data && response.data.id) {
+          return {
+            success: true,
+            data: {
+              id: String(response.data.id),
+              phone_number: response.data.phone,
+              operator: response.data.operator || targetOp,
+              expires_at: response.data.expires ? new Date(response.data.expires) : new Date(Date.now() + 15 * 60 * 1000)
+            }
+          };
+        }
 
-      return {
-        id: String(response.data.id),
-        phone_number: response.data.phone,
-        expires_at: response.data.expires ? new Date(response.data.expires) : new Date(Date.now() + 15 * 60 * 1000)
-      };
-    } catch (error) {
-      console.error('Virtual number allocation error:', error.message);
-      const rawData = error.response ? error.response.data : null;
-      throw new Error(formatUpstreamError(error, rawData));
+        return { error: formatUpstreamError(null, response.data) };
+      } catch (error) {
+        console.error(`Virtual number allocation error for operator ${targetOp}:`, error.message);
+        const rawData = error.response ? error.response.data : null;
+        const errStr = typeof rawData === 'string' ? rawData.toLowerCase() : '';
+        if (errStr.includes('no free') || errStr.includes('nofree')) {
+          return { noFree: true };
+        }
+        return { error: formatUpstreamError(error, rawData) };
+      }
     }
+
+    // 1. First attempt: try user's requested operator
+    let result = await tryAllocate(oCode);
+
+    // 2. If the specific operator returned 'no free phones' and operator wasn't already 'any',
+    // automatically fallback to 'any' so the user receives a number on their first click!
+    if (result.noFree && oCode !== 'any') {
+      console.log(`Operator "${operator}" has no free numbers right now. Automatically falling back to "any"...`);
+      result = await tryAllocate('any');
+    }
+
+    if (result.success && result.data) {
+      return result.data;
+    }
+
+    if (result.noFree) {
+      throw new Error('No free numbers available for this operator. Please select another operator with available numbers.');
+    }
+
+    throw new Error(result.error || 'Failed to allocate virtual number. Please select another operator.');
   }
 }
 

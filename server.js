@@ -816,7 +816,7 @@ app.get('/api/v1/sms/catalog', requireAuth, async (req, res) => {
     const availableKeys = Object.keys(productsObj);
     const services = availableKeys.map(key => {
       const baseUSD = productsObj[key].Price || 0.1;
-      const priceNgn = Math.ceil((baseUSD * 2) * adjustedRate);
+      const priceNgn = Math.ceil((baseUSD * SMS_MARKUP_MULTIPLIER) * adjustedRate);
       return {
         id: key,
         name: serviceNames[key] || key.charAt(0).toUpperCase() + key.slice(1),
@@ -854,13 +854,14 @@ app.get('/api/v1/sms/catalog', requireAuth, async (req, res) => {
   }
 });
 
-const FX_MARKUP_NAIRA = parseFloat(process.env.FX_MARKUP_NAIRA) || 40; // Markup added to fetched rate (+40 NGN)
-let cachedBaseExchangeRate = parseFloat(process.env.USD_NGN_EXCHANGE_RATE) || 1600; // Base fallback rate
+const FX_MARKUP_NAIRA = process.env.FX_MARKUP_NAIRA !== undefined ? parseFloat(process.env.FX_MARKUP_NAIRA) : 0;
+const SMS_MARKUP_MULTIPLIER = parseFloat(process.env.SMS_MARKUP_MULTIPLIER) || 1.45;
+let cachedBaseExchangeRate = parseFloat(process.env.USD_NGN_EXCHANGE_RATE) || 1581; // Base fallback rate
 let lastRateFetchTime = 0;
 const RATE_CACHE_DURATION_MS = 30 * 60 * 1000; // Cache exchange rate for 30 minutes
 
 async function getUsdNgnExchangeRate() {
-  // If manual black market / exchange rate is set in .env, use it directly with +40 markup
+  // If manual rate is set in .env, use it directly with FX_MARKUP_NAIRA
   if (process.env.USD_NGN_EXCHANGE_RATE) {
     const customBase = parseFloat(process.env.USD_NGN_EXCHANGE_RATE);
     const effective = customBase + FX_MARKUP_NAIRA;
@@ -893,31 +894,35 @@ app.get('/api/v1/sms/operators', requireAuth, async (req, res) => {
   const targetService = service || 'whatsapp';
   const isSimulation = process.env.SIMULATION_MODE === 'true';
 
+  // Realistic fallback dataset based on actual provider metrics
   const operatorsData = {
     usa: [
-      { operator_name: 'Virtual28', success_rate: 92.0, stock_count: 18500, price_ngn: 1500, isBest: true },
-      { operator_name: 'Virtual8', success_rate: 85.0, stock_count: 124000, price_ngn: 1500 },
-      { operator_name: 'Virtual63', success_rate: 78.0, stock_count: 5000, price_ngn: 1200 },
-      { operator_name: 'Any', success_rate: 95.0, stock_count: 150000, price_ngn: 1500 }
+      { operator_name: 'Virtual63', success_rate: 15.2, stock_count: 200, price_ngn: 1500, isBest: true },
+      { operator_name: 'Virtual8', success_rate: 14.8, stock_count: 124000, price_ngn: 1500 },
+      { operator_name: 'Virtual28', success_rate: 7.3, stock_count: 18500, price_ngn: 1500 },
+      { operator_name: 'Any', success_rate: 14.8, stock_count: 142000, price_ngn: 1500 }
     ],
     canada: [
-      { operator_name: 'Virtual28', success_rate: 91.0, stock_count: 8743, price_ngn: 1500, isBest: true },
-      { operator_name: 'Any', success_rate: 95.0, stock_count: 15000, price_ngn: 1500 }
+      { operator_name: 'Virtual12', success_rate: 49.3, stock_count: 32000, price_ngn: 1500, isBest: true },
+      { operator_name: 'Virtual8', success_rate: 29.0, stock_count: 5600, price_ngn: 1500 },
+      { operator_name: 'Virtual34', success_rate: 0.0, stock_count: 168000, price_ngn: 1500 },
+      { operator_name: 'Any', success_rate: 29.0, stock_count: 200000, price_ngn: 1500 }
     ],
     england: [
-      { operator_name: 'Virtual59', success_rate: 94.0, stock_count: 15432, price_ngn: 1500, isBest: true },
-      { operator_name: 'Virtual58', success_rate: 88.0, stock_count: 6732, price_ngn: 1500 },
-      { operator_name: 'Any', success_rate: 96.0, stock_count: 25000, price_ngn: 1500 }
+      { operator_name: 'Virtual58', success_rate: 43.2, stock_count: 1400, price_ngn: 1500, isBest: true },
+      { operator_name: 'Virtual59', success_rate: 22.7, stock_count: 12600, price_ngn: 1500 },
+      { operator_name: 'Virtual60', success_rate: 10.3, stock_count: 12600, price_ngn: 1500 },
+      { operator_name: 'Virtual34', success_rate: 4.6, stock_count: 850000, price_ngn: 1500 },
+      { operator_name: 'Any', success_rate: 22.7, stock_count: 880000, price_ngn: 1500 }
     ],
     germany: [
-      { operator_name: 'Virtual28', success_rate: 92.0, stock_count: 11432, price_ngn: 1500, isBest: true },
-      { operator_name: 'Any', success_rate: 95.0, stock_count: 20000, price_ngn: 1500 }
+      { operator_name: 'Virtual2', success_rate: 29.6, stock_count: 500, price_ngn: 1500, isBest: true },
+      { operator_name: 'Virtual66', success_rate: 0.0, stock_count: 119000, price_ngn: 1500 },
+      { operator_name: 'Any', success_rate: 15.0, stock_count: 120000, price_ngn: 1500 }
     ],
     nigeria: [
-      { operator_name: 'MTN', success_rate: 95.0, stock_count: 24512, price_ngn: 1500, isBest: true },
-      { operator_name: 'Airtel', success_rate: 91.0, stock_count: 12431, price_ngn: 1500 },
-      { operator_name: 'Globacom', success_rate: 78.0, stock_count: 5312, price_ngn: 1000 },
-      { operator_name: 'Any', success_rate: 95.0, stock_count: 50000, price_ngn: 1500 }
+      { operator_name: 'Virtual34', success_rate: null, stock_count: 163000, price_ngn: 1500, isBest: true },
+      { operator_name: 'Any', success_rate: null, stock_count: 163000, price_ngn: 1500 }
     ]
   };
 
@@ -930,10 +935,12 @@ app.get('/api/v1/sms/operators', requireAuth, async (req, res) => {
       stock_count: op.stock_count,
       price_ngn: Math.ceil(fixedRetailPrice * (op.operator_name === 'Virtual28' ? 0.8 : 1.0))
     })).sort((a, b) => {
-      const aHasStock = a.stock_count > 0 ? 1 : 0;
-      const bHasStock = b.stock_count > 0 ? 1 : 0;
+      const aHasStock = (a.stock_count || 0) > 0 ? 1 : 0;
+      const bHasStock = (b.stock_count || 0) > 0 ? 1 : 0;
       if (bHasStock !== aHasStock) return bHasStock - aHasStock;
-      return b.success_rate - a.success_rate;
+      const aRate = a.success_rate !== null ? a.success_rate : -1;
+      const bRate = b.success_rate !== null ? b.success_rate : -1;
+      return bRate - aRate;
     });
 
     return res.json({ operators: mapped });
@@ -952,70 +959,110 @@ app.get('/api/v1/sms/operators', requireAuth, async (req, res) => {
     
     const adjustedRate = await getUsdNgnExchangeRate();
 
+    let totalStock = 0;
+    let minRetailNgn = Infinity;
+
     const operators = Object.keys(serviceData).map(opName => {
       const opInfo = serviceData[opName];
       const wholesaleUSD = opInfo.cost || 0.1;
-      const retailNgn = Math.ceil((wholesaleUSD * 2) * adjustedRate);
+      const retailNgn = Math.ceil((wholesaleUSD * SMS_MARKUP_MULTIPLIER) * adjustedRate);
       const stockCount = typeof opInfo.count === 'number' ? opInfo.count : 0;
-      const rawRate = (opInfo.rate !== undefined && opInfo.rate !== null) ? Number(opInfo.rate) : null;
-      // Real signal / success rate: if numbers are in stock, use rate or fallback default; if 0 numbers, signal is 0
-      const successRate = stockCount > 0 ? (rawRate !== null ? rawRate : 50.0) : 0.0;
+      
+      // Calculate rate matching 5SIM dashboard: highest rate across all tracked historical windows
+      const allRates = [
+        opInfo.rate,
+        opInfo.rate1,
+        opInfo.rate3,
+        opInfo.rate24,
+        opInfo.rate72,
+        opInfo.rate168,
+        opInfo.rate720
+      ].filter(r => typeof r === 'number' && !isNaN(r));
+
+      const providerRate = allRates.length > 0 ? Math.round(Math.max(...allRates) * 100) / 100 : null;
+
+      if (stockCount > 0) {
+        totalStock += stockCount;
+        if (retailNgn < minRetailNgn) minRetailNgn = retailNgn;
+      }
+
+      // Proper capitalization matching 5SIM: virtual28 -> Virtual28
+      const formattedName = opName.toLowerCase() === 'any' ? 'Any' : (opName.charAt(0).toUpperCase() + opName.slice(1));
 
       return {
-        operator_name: opName,
-        success_rate: Math.round(successRate * 10) / 10,
+        operator_name: formattedName,
+        operator_id: opName.toLowerCase(),
+        success_rate: providerRate,
         stock_count: stockCount,
-        price_ngn: retailNgn
+        price_ngn: retailNgn,
+        wholesale_usd: wholesaleUSD
       };
     });
 
-    // Rank according to vendor standard:
+    // Append 'Any operator' card if stock exists, exactly matching 5SIM dashboard
+    if (totalStock > 0) {
+      operators.push({
+        operator_name: 'Any operator',
+        operator_id: 'any',
+        success_rate: null,
+        stock_count: totalStock,
+        price_ngn: minRetailNgn !== Infinity ? minRetailNgn : 1500,
+        is_any: true,
+        notice: 'You will be issued one of the virtual numbers available in stock. Please note that the prices may vary'
+      });
+    }
+
+    // Rank strictly matching 5SIM standard:
     // 1. Available free numbers first (stock_count > 0)
-    // 2. Highest signal / success rate first (success_rate descending)
-    // 3. Zero numbers available placed at bottom
+    // 2. Active specific operators first by success_rate descending (Virtual28: 23.07% #1, Virtual63: 15.77% #2, Virtual8: 14.81% #3)
+    // 3. 'Any operator' card directly following active operators
+    // 4. Out of stock / 0 numbers at the very bottom
     operators.sort((a, b) => {
-      const aHasStock = a.stock_count > 0 ? 1 : 0;
-      const bHasStock = b.stock_count > 0 ? 1 : 0;
+      const aHasStock = (a.stock_count || 0) > 0 ? 1 : 0;
+      const bHasStock = (b.stock_count || 0) > 0 ? 1 : 0;
       if (bHasStock !== aHasStock) {
         return bHasStock - aHasStock;
       }
-      return b.success_rate - a.success_rate;
+      // Active specific operators come before 'Any operator'
+      if (a.is_any && !b.is_any) return 1;
+      const aRate = a.success_rate !== null ? a.success_rate : -1;
+      const bRate = b.success_rate !== null ? b.success_rate : -1;
+      return bRate - aRate;
     });
 
-    if (operators.length === 0) {
-      const list = operatorsData[targetCountry.toLowerCase()] || operatorsData.usa;
-      const fixedRetailPrice = (SMS_PRICES_KOBO[targetService] || 150000) / 100;
-      const mapped = list.map(op => ({
-        operator_name: op.operator_name,
-        success_rate: op.success_rate,
-        stock_count: op.stock_count,
-        price_ngn: Math.ceil(fixedRetailPrice * (op.operator_name === 'Virtual28' ? 0.8 : 1.0))
-      })).sort((a, b) => {
-        const aHasStock = a.stock_count > 0 ? 1 : 0;
-        const bHasStock = b.stock_count > 0 ? 1 : 0;
-        if (bHasStock !== aHasStock) return bHasStock - aHasStock;
-        return b.success_rate - a.success_rate;
-      });
-      return res.json({ operators: mapped });
+    // Return strictly the two best responses to keep UI focused, clean, and high-converting
+    const activeWithStock = operators.filter(op => (op.stock_count || 0) > 0);
+    let topTwo = activeWithStock.slice(0, 2);
+    if (topTwo.length === 0) {
+      topTwo = operators.slice(0, 2);
     }
 
-    res.json({ operators });
+    res.json({ operators: topTwo });
   } catch (err) {
     console.error('Operators API error, falling back to cached/default dataset:', err.message);
     const list = operatorsData[targetCountry.toLowerCase()] || operatorsData.usa;
     const fixedRetailPrice = (SMS_PRICES_KOBO[targetService] || 150000) / 100;
     const mapped = list.map(op => ({
       operator_name: op.operator_name,
+      operator_id: op.operator_id || op.operator_name.toLowerCase(),
       success_rate: op.success_rate,
       stock_count: op.stock_count,
-      price_ngn: Math.ceil(fixedRetailPrice * (op.operator_name === 'Virtual28' ? 0.8 : 1.0))
+      price_ngn: Math.ceil(fixedRetailPrice * (op.operator_name === 'Virtual28' ? 0.8 : 1.0)),
+      is_any: op.is_any || false
     })).sort((a, b) => {
-      const aHasStock = a.stock_count > 0 ? 1 : 0;
-      const bHasStock = b.stock_count > 0 ? 1 : 0;
+      const aHasStock = (a.stock_count || 0) > 0 ? 1 : 0;
+      const bHasStock = (b.stock_count || 0) > 0 ? 1 : 0;
       if (bHasStock !== aHasStock) return bHasStock - aHasStock;
-      return b.success_rate - a.success_rate;
+      const aRate = a.success_rate !== null ? a.success_rate : -1;
+      const bRate = b.success_rate !== null ? b.success_rate : -1;
+      return bRate - aRate;
     });
-    res.json({ operators: mapped });
+
+    const activeFallback = mapped.filter(op => (op.stock_count || 0) > 0);
+    let topTwoFallback = activeFallback.slice(0, 2);
+    if (topTwoFallback.length === 0) topTwoFallback = mapped.slice(0, 2);
+
+    res.json({ operators: topTwoFallback });
   }
 });
 
@@ -1258,7 +1305,7 @@ async function getSmsCostKobo(service, country, operator) {
     const targetCountry = country || 'usa';
     const targetOperator = operator || 'any';
     const response = await axios.get(`https://5sim.net/v1/guest/prices?product=${service}&country=${targetCountry}`, {
-      timeout: 5000
+      timeout: 10000
     });
 
     const countryData = response.data[targetCountry.toLowerCase()] || {};
@@ -1293,7 +1340,7 @@ async function getSmsCostKobo(service, country, operator) {
 
     const wholesaleUSD = selectedOpInfo.cost || 0.1;
     const adjustedRate = await getUsdNgnExchangeRate();
-    const retailNgn = Math.ceil((wholesaleUSD * 2) * adjustedRate);
+    const retailNgn = Math.ceil((wholesaleUSD * SMS_MARKUP_MULTIPLIER) * adjustedRate);
     return retailNgn * 100; // NGN to Kobo
   } catch (err) {
     console.error('Error calculating dynamic SMS cost:', err.message);
@@ -1869,7 +1916,7 @@ Need human assistance? Reply directly to this message and an agent will join you
       if (data === 'guide_proxy') {
         await sendTelegramMessage(userId, `🌐 *Proxy Setup Guide*\n\n1. For laptops/desktops, enter the SOCKS5 proxy IP, Port, Username, and Password in SwitchyOmega (browser) or Proxifier.\n2. For WireGuard, download the WireGuard client, click 'Add Tunnel', and paste the configuration profile.\n3. Make sure to choose the correct target country and resident carrier.`);
       } else if (data === 'guide_sms') {
-        await sendTelegramMessage(userId, `📱 *SMS Verification Help*\n\n1. Select higher signal operators (>80% success rate) for reliability.\n2. Leases last 10-15 minutes. If the OTP code does not arrive within 3 minutes, click 'Cancel Number' (free) and choose a different operator.\n3. Cancelled numbers are automatically refunded to your wallet.`);
+        await sendTelegramMessage(userId, `📱 *SMS Verification Help*\n\n1. Select higher signal operators (e.g. Best Signal) for maximum delivery reliability.\n2. Leases last 10-15 minutes. If the OTP code does not arrive within 3 minutes, click 'Cancel Number' (free) and choose a different operator.\n3. Cancelled numbers are automatically refunded to your wallet.`);
       } else if (data === 'guide_billing') {
         await sendTelegramMessage(userId, `💳 *Deposit & Billing Info*\n\n1. Click 'Top Up Wallet' to fund Naira via bank transfer, card, or USSD securely.\n2. Minimum deposit is ₦500.\n3. Credits are automatic and instant.`);
       } else if (data === 'speak_human') {
@@ -2014,7 +2061,10 @@ async function startTelegramPolling(token) {
           await handleTelegramUpdate(update);
         }
       } catch (err) {
-        if (err.code !== 'ECONNABORTED' && err.message !== 'timeout of 35000ms exceeded') {
+        if (err.response && err.response.status === 409) {
+          // Webhook is configured on production (Vercel), pause polling to avoid conflict
+          await new Promise(resolve => setTimeout(resolve, 60000));
+        } else if (err.code !== 'ECONNABORTED' && err.message !== 'timeout of 35000ms exceeded') {
           console.error('Telegram polling loop error:', err.message);
           // Wait 5 seconds before retrying to prevent connection loop-spamming
           await new Promise(resolve => setTimeout(resolve, 5000));

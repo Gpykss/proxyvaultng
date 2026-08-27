@@ -927,6 +927,8 @@ async function loadStep3Operators() {
     data.operators.forEach((op, index) => {
       const card = document.createElement('div');
       card.className = 'operator-card-item';
+      const isAny = op.is_any || op.operator_name.toLowerCase().includes('any');
+      if (isAny) card.classList.add('is-any-operator');
 
       const hasFreeNumbers = (op.stock_count || 0) > 0;
 
@@ -935,18 +937,25 @@ async function loadStep3Operators() {
         card.classList.add('out-of-stock');
         card.style.opacity = '0.6';
         badgeHtml = '<span class="operator-badge-tag out-of-stock" style="background:rgba(244,63,94,0.12); color:#f43f5e; border:1px solid rgba(244,63,94,0.3);">NO FREE NUMBERS</span>';
-      } else if (index === 0) {
+      } else if (index === 0 && op.success_rate !== null && op.success_rate > 0 && !isAny) {
         badgeHtml = '<span class="operator-badge-tag">BEST RATE</span>';
-      } else if (op.operator_name.toLowerCase() === 'virtual28' || op.price_ngn < data.operators[0].price_ngn) {
+      } else if (!isAny && data.operators[0] && op.price_ngn < data.operators[0].price_ngn) {
         badgeHtml = '<span class="operator-badge-tag low-price">LOW PRICE</span>';
       }
 
-      const signalDisplay = hasFreeNumbers
-        ? `✉️ ${op.success_rate}% success rate`
-        : `<span style="color:var(--text-muted); font-size:0.75rem;">⚠️ No numbers available</span>`;
+      let signalDisplay = '';
+      if (!hasFreeNumbers) {
+        signalDisplay = `<span style="color:var(--text-muted); font-size:0.75rem;">⚠️ No numbers available</span>`;
+      } else if (isAny) {
+        signalDisplay = `<span style="color:var(--text-muted); font-size:0.72rem;">Pooled network stock</span>`;
+      } else if (op.success_rate !== null && op.success_rate !== undefined) {
+        signalDisplay = `<span>✉️ ${op.success_rate}%</span> <span class="badge-sms-reuse">>1 SMS</span>`;
+      } else {
+        signalDisplay = `<span style="color:var(--text-secondary); font-size:0.75rem;">✉️ Active signal</span>`;
+      }
 
       const stockDisplay = hasFreeNumbers
-        ? `<div class="operator-stock-count">${op.stock_count.toLocaleString()} numbers</div>`
+        ? `<div class="operator-stock-count" style="color:#22c55e; font-weight:600;">${op.stock_count.toLocaleString()} numbers</div>`
         : `<div class="operator-stock-count" style="color:#f43f5e; font-weight:600;">No free numbers</div>`;
 
       const buyButtonHtml = hasFreeNumbers
@@ -955,16 +964,26 @@ async function loadStep3Operators() {
 
       card.innerHTML = `
         ${badgeHtml}
-        <div class="operator-info-col">
-          <span class="operator-name">${op.operator_name}</span>
-          <span class="operator-signal-rate">${signalDisplay}</span>
-        </div>
-        <div class="operator-pricing-col">
-          <div>
-            <div class="operator-cost-naira">₦${(op.price_ngn || 1500).toLocaleString()}</div>
-            ${stockDisplay}
+        <div style="display: flex; flex-direction: column; width: 100%; gap: 0.4rem;">
+          <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+            <div class="operator-info-col">
+              <span class="operator-name">${op.operator_name}</span>
+              <div class="operator-signal-rate">${signalDisplay}</div>
+            </div>
+            <div class="operator-pricing-col">
+              <div>
+                <div class="operator-cost-naira">₦${(op.price_ngn || 1500).toLocaleString()}</div>
+                ${stockDisplay}
+              </div>
+              ${buyButtonHtml}
+            </div>
           </div>
-          ${buyButtonHtml}
+          ${isAny ? `
+            <div class="operator-any-notice">
+              <span>ℹ️</span>
+              <span>You will be issued one of the virtual numbers available in stock. Please note that the prices may vary</span>
+            </div>
+          ` : ''}
         </div>
       `;
 
@@ -972,7 +991,8 @@ async function loadStep3Operators() {
         const btn = card.querySelector('.operator-buy-btn');
         if (btn) {
           btn.addEventListener('click', () => {
-            executeSmsRent(currentStepService, currentStepCountry, op.operator_name, op.price_ngn || 1500);
+            const targetOpId = op.operator_id || (isAny ? 'any' : op.operator_name.toLowerCase());
+            executeSmsRent(currentStepService, currentStepCountry, targetOpId, op.price_ngn || 1500);
           });
         }
       }

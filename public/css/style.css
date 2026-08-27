@@ -1176,6 +1176,39 @@ img, svg, video, canvas, audio, iframe, embed, object {
   color: #fff;
 }
 
+.badge-sms-reuse {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: #94a3b8;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  padding: 0.08rem 0.35rem;
+  border-radius: 4px;
+  margin-left: 0.35rem;
+  letter-spacing: 0.02em;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.operator-card-item.is-any-operator {
+  border-color: rgba(56, 189, 248, 0.25);
+  background: #0c1726;
+}
+
+.operator-any-notice {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  padding: 0.4rem 0.6rem;
+  background: rgba(56, 189, 248, 0.06);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid #38bdf8;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  margin-top: 0.25rem;
+}
+
 .operator-info-col {
   display: flex;
   flex-direction: column;
