@@ -943,15 +943,17 @@ async function loadStep3Operators() {
         badgeHtml = '<span class="operator-badge-tag low-price">LOW PRICE</span>';
       }
 
+      const envelopeIcon = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px;opacity:0.85;"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>`;
+
       let signalDisplay = '';
       if (!hasFreeNumbers) {
         signalDisplay = `<span style="color:var(--text-muted); font-size:0.75rem;">⚠️ No numbers available</span>`;
       } else if (isAny) {
         signalDisplay = `<span style="color:var(--text-muted); font-size:0.72rem;">Pooled network stock</span>`;
       } else if (op.success_rate !== null && op.success_rate !== undefined) {
-        signalDisplay = `<span>✉️ ${op.success_rate}%</span> <span class="badge-sms-reuse">>1 SMS</span>`;
+        signalDisplay = `<span>${envelopeIcon}${op.success_rate}%</span> <span class="badge-sms-reuse">>1 SMS</span>`;
       } else {
-        signalDisplay = `<span style="color:var(--text-secondary); font-size:0.75rem;">✉️ Active signal</span>`;
+        signalDisplay = `<span style="color:var(--text-secondary); font-size:0.75rem;">${envelopeIcon}Active signal</span>`;
       }
 
       const stockDisplay = hasFreeNumbers
