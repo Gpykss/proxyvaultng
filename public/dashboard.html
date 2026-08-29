@@ -151,6 +151,9 @@
           </div>
 
           <div class="action-buttons-group">
+            <button class="btn-outline" id="sync-proxies-btn" style="font-size: 0.78rem; padding: 0.4rem 0.75rem;" title="Import active proxies from provider">
+              🔄 Sync Proxies
+            </button>
             <button class="btn-outline" id="download-proxies-txt-btn" style="font-size: 0.78rem; padding: 0.4rem 0.75rem;">
               Download .txt
             </button>
@@ -519,6 +522,72 @@
         <h3 style="color: #fff; font-size: 0.95rem; margin-top: 1rem; margin-bottom: 0.35rem;">2. Non-Refundable Balance</h3>
         <p style="margin-bottom: 1rem;">Deposits are non-refundable and strictly for platform resource allocations.</p>
       </div>
+    </div>
+  </div>
+
+  <!-- ====================================================
+       PROXY PROVISIONED SUCCESS MODAL
+  ==================================================== -->
+  <div class="modal-overlay" id="proxy-success-modal">
+    <div class="modal-card" style="max-width: 520px;">
+      <button class="modal-close-btn" id="close-proxy-success-btn">&times;</button>
+      
+      <div style="text-align: center; margin-bottom: 1.25rem;">
+        <div style="font-size: 2.2rem; margin-bottom: 0.35rem;">🎉</div>
+        <h2 class="modal-title" style="margin-bottom: 0.25rem; font-size: 1.25rem;">Proxy Provisioned Successfully!</h2>
+        <p style="font-size: 0.8rem; color: var(--text-secondary);">Your dedicated static residential proxy is active and ready for immediate connection.</p>
+      </div>
+
+      <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; margin-bottom: 1.25rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.65rem; padding-bottom: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.06);">
+          <span style="font-size: 0.75rem; color: var(--text-secondary);">IP Address</span>
+          <div style="display: flex; align-items: center; gap: 0.4rem;">
+            <span style="font-weight: 700; color: #fff; font-family: var(--font-mono); font-size: 0.9rem;" id="modal-success-ip">...</span>
+            <button class="copy-icon-btn" id="copy-modal-success-ip" title="Copy IP">📋</button>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.65rem; padding-bottom: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.06);">
+          <span style="font-size: 0.75rem; color: var(--text-secondary);">Port (HTTP & SOCKS5)</span>
+          <div style="display: flex; align-items: center; gap: 0.4rem;">
+            <span style="font-weight: 700; color: #fff; font-family: var(--font-mono); font-size: 0.9rem;" id="modal-success-port">...</span>
+            <button class="copy-icon-btn" id="copy-modal-success-port" title="Copy Port">📋</button>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.65rem; padding-bottom: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.06);">
+          <span style="font-size: 0.75rem; color: var(--text-secondary);">Username</span>
+          <div style="display: flex; align-items: center; gap: 0.4rem;">
+            <span style="font-weight: 700; color: #fff; font-family: var(--font-mono); font-size: 0.85rem;" id="modal-success-user">...</span>
+            <button class="copy-icon-btn" id="copy-modal-success-user" title="Copy Username">📋</button>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.65rem; padding-bottom: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.06);">
+          <span style="font-size: 0.75rem; color: var(--text-secondary);">Password</span>
+          <div style="display: flex; align-items: center; gap: 0.4rem;">
+            <span style="font-weight: 700; color: #fff; font-family: var(--font-mono); font-size: 0.85rem;" id="modal-success-pass">...</span>
+            <button class="copy-icon-btn" id="copy-modal-success-pass" title="Copy Password">📋</button>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 0.75rem; color: var(--text-secondary);">Location & Carrier</span>
+          <span style="font-size: 0.8rem; color: var(--cyan-accent); font-weight: 600;" id="modal-success-meta">...</span>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 1.25rem;">
+        <label style="display: block; font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.4rem;">1-Click Formatted Connection String</label>
+        <div style="display: flex; gap: 0.5rem;">
+          <input type="text" id="modal-success-conn-str" readonly style="flex: 1; background: rgba(0,0,0,0.35); border: 1px solid var(--border-color); color: #fff; font-family: var(--font-mono); font-size: 0.78rem; padding: 0.55rem; border-radius: 6px;">
+          <button class="btn-primary" id="copy-modal-success-conn-btn" style="padding: 0.55rem 1rem; font-size: 0.8rem; white-space: nowrap;">Copy String</button>
+        </div>
+      </div>
+
+      <button class="btn-primary" id="dismiss-proxy-success-btn" style="width: 100%; padding: 0.75rem; font-weight: 700;">
+        View in My Proxies Dashboard →
+      </button>
     </div>
   </div>
 

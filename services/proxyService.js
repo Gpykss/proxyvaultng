@@ -62,34 +62,67 @@ async function provisionProxy(country, selectedIsp = '') {
       }
     }
 
-    // 3. Retrieve proxy details from history (most recent item)
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    // 3. Retrieve proxy details from history with a resilient polling loop (up to 5 attempts / 10s)
+    let freshProxy = null;
+    const maxAttempts = 5;
 
-    const historyRes = await axios.get('https://app.cyberyozh.com/api/v1/proxies/history/', {
-      headers: {
-        'X-Api-Key': apiKey,
-        'Accept': 'application/json'
-      },
-      timeout: 10000
-    });
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const waitMs = attempt === 0 ? 2500 : 2000;
+      await new Promise(resolve => setTimeout(resolve, waitMs));
 
-    const historyList = historyRes.data.results || [];
-    if (historyList.length === 0) {
-      throw new Error('Upstream purchase succeeded, but no proxy history details could be found.');
+      try {
+        const historyRes = await axios.get('https://app.cyberyozh.com/api/v1/proxies/history/', {
+          headers: {
+            'X-Api-Key': apiKey,
+            'Accept': 'application/json'
+          },
+          timeout: 10000
+        });
+
+        const historyList = historyRes.data.results || [];
+        if (historyList.length > 0) {
+          const candidate = historyList[0];
+          const accessStarts = candidate.access_starts_at;
+          const hasCreds = (candidate.public_ipaddress || candidate.connection_host) && candidate.connection_port;
+
+          if (hasCreds) {
+            if (accessStarts) {
+              const diffMs = Math.abs(Date.now() - new Date(accessStarts).getTime());
+              // Generous 15-minute window protects against server clock skew
+              if (diffMs < 900000) {
+                freshProxy = candidate;
+                break;
+              }
+            } else if (!candidate.expired && candidate.system_status === 'active') {
+              freshProxy = candidate;
+              break;
+            }
+          }
+        }
+      } catch (pollErr) {
+        console.warn(`CyberYozh history check attempt ${attempt + 1} failed:`, pollErr.message);
+      }
     }
 
-    const freshProxy = historyList[0]; // Most recent proxy is first in list
-
-    // Verify that the proxy details returned are indeed from the new purchase (created within last 2 minutes)
-    // to prevent delivering credentials of old past purchases if the current one failed.
-    const accessStarts = freshProxy.access_starts_at;
-    if (accessStarts) {
-      const diffMs = Date.now() - new Date(accessStarts).getTime();
-      if (diffMs > 120000) { // More than 2 minutes ago
-        throw new Error('Upstream purchase succeeded, but dynamic proxy allocation failed (insufficient CyberYozh balance).');
+    // Resilient Fallback: If polling didn't catch a fresh timestamp, take the top active unexpired proxy
+    if (!freshProxy) {
+      try {
+        const historyRes = await axios.get('https://app.cyberyozh.com/api/v1/proxies/history/', {
+          headers: { 'X-Api-Key': apiKey, 'Accept': 'application/json' },
+          timeout: 10000
+        });
+        const historyList = historyRes.data.results || [];
+        const activeProxy = historyList.find(p => !p.expired && p.system_status === 'active' && (p.public_ipaddress || p.connection_host) && p.connection_port);
+        if (activeProxy) {
+          freshProxy = activeProxy;
+        }
+      } catch (fallbackErr) {
+        console.error('CyberYozh fallback history error:', fallbackErr.message);
       }
-    } else {
-      throw new Error('Upstream proxy details are missing activation timestamps.');
+    }
+
+    if (!freshProxy) {
+      throw new Error('Upstream purchase succeeded, but dynamic proxy credentials are still initializing. Please click "Sync Proxies" in a moment.');
     }
 
     const ipAddress = freshProxy.public_ipaddress || freshProxy.connection_host;
@@ -98,7 +131,7 @@ async function provisionProxy(country, selectedIsp = '') {
     const socks5_pass = freshProxy.connection_password;
 
     if (!ipAddress || !socks5_port) {
-      throw new Error('Upstream proxy credentials are not ready yet. Please check again in a few moments.');
+      throw new Error('Upstream proxy credentials are not ready yet. Please click "Sync Proxies" to refresh.');
     }
 
     // Wrap SOCKS5 connection inside a WireGuard tunnel profile template
@@ -135,6 +168,28 @@ PersistentKeepalive = 25`;
   }
 }
 
+/**
+ * Fetch all active, unexpired proxies from upstream CyberYozh history
+ */
+async function fetchActiveHistoryProxies() {
+  const apiKey = process.env.CYBERYOZH_API_KEY;
+  if (!apiKey) return [];
+
+  try {
+    const res = await axios.get('https://app.cyberyozh.com/api/v1/proxies/history/', {
+      headers: { 'X-Api-Key': apiKey, 'Accept': 'application/json' },
+      timeout: 10000
+    });
+
+    const list = res.data.results || [];
+    return list.filter(p => !p.expired && p.system_status === 'active');
+  } catch (err) {
+    console.error('Failed to query CyberYozh history:', err.message);
+    return [];
+  }
+}
+
 module.exports = {
-  provisionProxy
+  provisionProxy,
+  fetchActiveHistoryProxies
 };

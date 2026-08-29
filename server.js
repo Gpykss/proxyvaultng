@@ -1258,13 +1258,53 @@ app.get(['/api/proxy/rent', '/api/proxies/rent'], (req, res) => {
   });
 });
 
-// Fetch active proxy leases
+// Fetch active proxy leases with auto-recovery
 app.get('/api/proxy/leases', requireAuth, async (req, res) => {
   try {
-    const leases = await ProxyLease.find({
+    let leases = await ProxyLease.find({
       user_id: req.session.userId,
       status: 'active'
     }).sort({ _id: -1 });
+
+    // Auto-recovery: If user has 0 active leases recorded, check upstream CyberYozh for unassigned active proxies
+    if (leases.length === 0) {
+      try {
+        const upstreamProxies = await proxyService.fetchActiveHistoryProxies();
+        if (upstreamProxies && upstreamProxies.length > 0) {
+          for (const p of upstreamProxies) {
+            const ip = p.public_ipaddress || p.connection_host;
+            const port = p.connection_port;
+            if (!ip || !port) continue;
+
+            const existing = await ProxyLease.findOne({ ip_address: ip, socks5_port: port });
+            if (!existing) {
+              const country = (p.geoip && p.geoip.countryCode2) || 'GB';
+              const carrier = (p.geoip && p.geoip.ispName) || 'Broadband Residential';
+              const expiresAt = p.access_expires_at ? new Date(p.access_expires_at) : new Date(Date.now() + 30 * 86400000);
+
+              await ProxyLease.create({
+                user_id: req.session.userId,
+                ip_address: ip,
+                socks5_port: port,
+                socks5_user: p.connection_login,
+                socks5_pass: p.connection_password,
+                wireguard_conf: '',
+                country,
+                carrier,
+                expires_at: expiresAt,
+                status: 'active'
+              });
+            }
+          }
+          leases = await ProxyLease.find({
+            user_id: req.session.userId,
+            status: 'active'
+          }).sort({ _id: -1 });
+        }
+      } catch (recoveryErr) {
+        console.warn('Auto-recovery proxy check skipped:', recoveryErr.message);
+      }
+    }
 
     res.json({
       leases: leases.map(l => ({
@@ -1283,6 +1323,70 @@ app.get('/api/proxy/leases', requireAuth, async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ error: 'Failed to retrieve proxy leases.' });
+  }
+});
+
+// Sync proxy leases on-demand with upstream CyberYozh
+app.post('/api/proxy/sync', requireAuth, async (req, res) => {
+  try {
+    const upstreamProxies = await proxyService.fetchActiveHistoryProxies();
+    if (!upstreamProxies || upstreamProxies.length === 0) {
+      return res.json({ message: 'No active upstream proxies found in provider history.', syncedCount: 0, leases: [] });
+    }
+
+    let syncedCount = 0;
+    for (const p of upstreamProxies) {
+      const ip = p.public_ipaddress || p.connection_host;
+      const port = p.connection_port;
+      if (!ip || !port) continue;
+
+      const existing = await ProxyLease.findOne({ ip_address: ip, socks5_port: port });
+      if (!existing) {
+        const country = (p.geoip && p.geoip.countryCode2) || 'GB';
+        const carrier = (p.geoip && p.geoip.ispName) || 'Broadband Residential';
+        const expiresAt = p.access_expires_at ? new Date(p.access_expires_at) : new Date(Date.now() + 30 * 86400000);
+
+        await ProxyLease.create({
+          user_id: req.session.userId,
+          ip_address: ip,
+          socks5_port: port,
+          socks5_user: p.connection_login,
+          socks5_pass: p.connection_password,
+          wireguard_conf: '',
+          country,
+          carrier,
+          expires_at: expiresAt,
+          status: 'active'
+        });
+        syncedCount++;
+      }
+    }
+
+    const leases = await ProxyLease.find({
+      user_id: req.session.userId,
+      status: 'active'
+    }).sort({ _id: -1 });
+
+    res.json({
+      message: syncedCount > 0 ? `Successfully imported ${syncedCount} active proxy lease(s)!` : 'All proxies are already up-to-date.',
+      syncedCount,
+      leases: leases.map(l => ({
+        id: l._id.toString(),
+        user_id: l.user_id.toString(),
+        ip_address: l.ip_address,
+        socks5_port: l.socks5_port,
+        socks5_user: l.socks5_user,
+        socks5_pass: l.socks5_pass,
+        wireguard_conf: l.wireguard_conf,
+        country: l.country,
+        carrier: l.carrier,
+        expires_at: l.expires_at.toISOString(),
+        status: l.status
+      }))
+    });
+  } catch (error) {
+    console.error('Proxy sync failure:', error.message);
+    res.status(500).json({ error: 'Failed to sync proxies: ' + error.message });
   }
 });
 

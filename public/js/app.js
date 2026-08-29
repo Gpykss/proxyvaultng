@@ -445,6 +445,12 @@ function setupNavAndModals() {
     dlTxtBtn.addEventListener('click', exportProxiesTxt);
   }
 
+  // Sync / Recover Proxies button
+  const syncBtn = document.getElementById('sync-proxies-btn');
+  if (syncBtn) {
+    syncBtn.addEventListener('click', handleSyncProxies);
+  }
+
   // Terms of Service Modal
   const tosModal = document.getElementById('dashboard-tos-modal');
   const drawerTosBtn = document.getElementById('drawer-tos-btn');
@@ -1491,6 +1497,14 @@ async function handleProxyPurchase() {
     document.getElementById('rent-proxy-modal').classList.remove('active');
     fetchUserProfile();
     loadActiveProxies();
+
+    // Auto-switch directly to #proxies-view so user immediately sees their active proxies
+    switchView('#proxies-view');
+
+    // Pop up full credentials modal so user immediately gets their IP, Port, Username & Password
+    if (data.lease) {
+      showProxySuccessModal(data.lease);
+    }
   } catch (err) {
     if (currentUser) {
       currentUser.balance = originalBalance;
@@ -1500,6 +1514,89 @@ async function handleProxyPurchase() {
   } finally {
     buyBtn.disabled = false;
     buyBtn.textContent = 'Rent Static IP';
+  }
+}
+
+// Display dedicated popup modal showing full proxy credentials
+function showProxySuccessModal(lease) {
+  const modal = document.getElementById('proxy-success-modal');
+  if (!modal) return;
+
+  const ipEl = document.getElementById('modal-success-ip');
+  const portEl = document.getElementById('modal-success-port');
+  const userEl = document.getElementById('modal-success-user');
+  const passEl = document.getElementById('modal-success-pass');
+  const metaEl = document.getElementById('modal-success-meta');
+  const connStrInput = document.getElementById('modal-success-conn-str');
+
+  const ip = lease.ip_address || '';
+  const port = lease.socks5_port || '';
+  const user = lease.socks5_user || '';
+  const pass = lease.socks5_pass || '';
+  const country = lease.country || 'GB';
+  const carrier = lease.carrier || 'Broadband Residential';
+  const connStr = `http://${user}:${pass}@${ip}:${port}`;
+
+  if (ipEl) ipEl.textContent = ip;
+  if (portEl) portEl.textContent = port;
+  if (userEl) userEl.textContent = user;
+  if (passEl) passEl.textContent = pass;
+  if (metaEl) metaEl.textContent = `${country.toUpperCase()} • ${carrier}`;
+  if (connStrInput) connStrInput.value = connStr;
+
+  // Bind 1-click copies
+  const bindModalCopy = (btnId, textToCopy, toastMsg) => {
+    const btn = document.getElementById(btnId);
+    if (btn) {
+      btn.onclick = () => {
+        navigator.clipboard.writeText(textToCopy).then(() => showToast(toastMsg, 'success'));
+      };
+    }
+  };
+
+  bindModalCopy('copy-modal-success-ip', ip, 'IP address copied!');
+  bindModalCopy('copy-modal-success-port', String(port), 'Port copied!');
+  bindModalCopy('copy-modal-success-user', user, 'Username copied!');
+  bindModalCopy('copy-modal-success-pass', pass, 'Password copied!');
+  bindModalCopy('copy-modal-success-conn-btn', connStr, 'Connection string copied!');
+
+  modal.classList.add('active');
+
+  const closeBtn = document.getElementById('close-proxy-success-btn');
+  const dismissBtn = document.getElementById('dismiss-proxy-success-btn');
+  const closeModal = () => modal.classList.remove('active');
+
+  if (closeBtn) closeBtn.onclick = closeModal;
+  if (dismissBtn) dismissBtn.onclick = closeModal;
+}
+
+// On-demand sync with CyberYozh upstream
+async function handleSyncProxies() {
+  const syncBtn = document.getElementById('sync-proxies-btn');
+  try {
+    if (syncBtn) {
+      syncBtn.disabled = true;
+      syncBtn.innerHTML = '<span class="spinner"></span> Syncing...';
+    }
+
+    const res = await fetch('/api/proxy/sync', { method: 'POST' });
+    const data = await res.json();
+
+    if (!res.ok) {
+      showToast(data.error || 'Failed to sync proxies with provider', 'error');
+      return;
+    }
+
+    showToast(data.message || 'Proxies synced successfully!', 'success');
+    loadActiveProxies();
+    fetchUserProfile();
+  } catch (err) {
+    showToast('Network error syncing proxies', 'error');
+  } finally {
+    if (syncBtn) {
+      syncBtn.disabled = false;
+      syncBtn.innerHTML = '🔄 Sync Proxies';
+    }
   }
 }
 
