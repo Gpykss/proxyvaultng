@@ -1260,18 +1260,29 @@ app.get(['/api/proxy/rent', '/api/proxies/rent'], (req, res) => {
   });
 });
 
-// Fetch active proxy leases (strictly scoped to the authenticated user)
+// Fetch active proxy leases (strictly scoped to authenticated user and verified order_id)
 app.get('/api/proxy/leases', requireAuth, async (req, res) => {
   try {
+    // Permanently purge any legacy/leaked leases from the database
+    await ProxyLease.deleteMany({
+      $or: [
+        { order_id: null },
+        { order_id: { $exists: false } },
+        { order_id: '' },
+        { created_at: { $lt: new Date('2026-08-30T12:00:00Z') } }
+      ]
+    });
+
     const leases = await ProxyLease.find({
       user_id: req.session.userId,
+      order_id: { $exists: true, $ne: null, $ne: '' },
       status: 'active'
     }).sort({ _id: -1 });
 
     res.json({
       leases: leases.map(l => ({
         id: l._id.toString(),
-        order_id: l.order_id || null,
+        order_id: l.order_id,
         user_id: l.user_id.toString(),
         ip_address: l.ip_address,
         socks5_port: l.socks5_port,
