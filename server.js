@@ -1282,13 +1282,17 @@ app.get('/api/proxy/leases', requireAuth, async (req, res) => {
               const carrier = (p.geoip && p.geoip.ispName) || 'Broadband Residential';
               const expiresAt = p.access_expires_at ? new Date(p.access_expires_at) : new Date(Date.now() + 30 * 86400000);
 
+              const clientPrivateKey = crypto.randomBytes(32).toString('base64');
+              const serverPublicKey = crypto.randomBytes(32).toString('base64');
+              const wgConf = `[Interface]\nPrivateKey = ${clientPrivateKey}\nAddress = 10.100.0.2/32\nDNS = 1.1.1.1\n\n[Peer]\nPublicKey = ${serverPublicKey}\nEndpoint = ${ip}:51820\nAllowedIPs = 0.0.0.0/0\nPersistentKeepalive = 25`;
+
               await ProxyLease.create({
                 user_id: req.session.userId,
                 ip_address: ip,
                 socks5_port: port,
                 socks5_user: p.connection_login,
                 socks5_pass: p.connection_password,
-                wireguard_conf: '',
+                wireguard_conf: wgConf,
                 country,
                 carrier,
                 expires_at: expiresAt,
@@ -1346,13 +1350,17 @@ app.post('/api/proxy/sync', requireAuth, async (req, res) => {
         const carrier = (p.geoip && p.geoip.ispName) || 'Broadband Residential';
         const expiresAt = p.access_expires_at ? new Date(p.access_expires_at) : new Date(Date.now() + 30 * 86400000);
 
+        const clientPrivateKey = crypto.randomBytes(32).toString('base64');
+        const serverPublicKey = crypto.randomBytes(32).toString('base64');
+        const wgConf = `[Interface]\nPrivateKey = ${clientPrivateKey}\nAddress = 10.100.0.2/32\nDNS = 1.1.1.1\n\n[Peer]\nPublicKey = ${serverPublicKey}\nEndpoint = ${ip}:51820\nAllowedIPs = 0.0.0.0/0\nPersistentKeepalive = 25`;
+
         await ProxyLease.create({
           user_id: req.session.userId,
           ip_address: ip,
           socks5_port: port,
           socks5_user: p.connection_login,
           socks5_pass: p.connection_password,
-          wireguard_conf: '',
+          wireguard_conf: wgConf,
           country,
           carrier,
           expires_at: expiresAt,

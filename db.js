@@ -85,7 +85,7 @@ const ProxyLeaseSchema = new mongoose.Schema({
   socks5_port: { type: Number, required: true },
   socks5_user: { type: String, required: true },
   socks5_pass: { type: String, required: true },
-  wireguard_conf: { type: String, required: true },
+  wireguard_conf: { type: String, default: '' },
   country: { type: String, required: true },
   carrier: { type: String, default: 'Broadband Residential' },
   expires_at: { type: Date, required: true },
