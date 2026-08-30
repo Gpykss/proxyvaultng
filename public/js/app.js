@@ -445,12 +445,6 @@ function setupNavAndModals() {
     dlTxtBtn.addEventListener('click', exportProxiesTxt);
   }
 
-  // Sync / Recover Proxies button
-  const syncBtn = document.getElementById('sync-proxies-btn');
-  if (syncBtn) {
-    syncBtn.addEventListener('click', handleSyncProxies);
-  }
-
   // Terms of Service Modal
   const tosModal = document.getElementById('dashboard-tos-modal');
   const drawerTosBtn = document.getElementById('drawer-tos-btn');
@@ -1570,35 +1564,6 @@ function showProxySuccessModal(lease) {
   if (dismissBtn) dismissBtn.onclick = closeModal;
 }
 
-// On-demand sync with CyberYozh upstream
-async function handleSyncProxies() {
-  const syncBtn = document.getElementById('sync-proxies-btn');
-  try {
-    if (syncBtn) {
-      syncBtn.disabled = true;
-      syncBtn.innerHTML = '<span class="spinner"></span> Syncing...';
-    }
-
-    const res = await fetch('/api/proxy/sync', { method: 'POST' });
-    const data = await res.json();
-
-    if (!res.ok) {
-      showToast(data.error || 'Failed to sync proxies with provider', 'error');
-      return;
-    }
-
-    showToast(data.message || 'Proxies synced successfully!', 'success');
-    loadActiveProxies();
-    fetchUserProfile();
-  } catch (err) {
-    showToast('Network error syncing proxies', 'error');
-  } finally {
-    if (syncBtn) {
-      syncBtn.disabled = false;
-      syncBtn.innerHTML = '🔄 Sync Proxies';
-    }
-  }
-}
 
 async function loadActiveProxies() {
   const container = document.getElementById('active-proxies-container');

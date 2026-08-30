@@ -81,6 +81,7 @@ const TransactionSchema = new mongoose.Schema({
 // 3. Proxy Lease Schema definition
 const ProxyLeaseSchema = new mongoose.Schema({
   user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  order_id: { type: String, default: null },
   ip_address: { type: String, required: true },
   socks5_port: { type: Number, required: true },
   socks5_user: { type: String, required: true },
