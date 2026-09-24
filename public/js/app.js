@@ -1613,22 +1613,70 @@ async function loadActiveProxies() {
   const container = document.getElementById('active-proxies-container');
   if (!container) return;
 
-  try {
-    const res = await fetch('/api/proxy/leases');
-    const data = await res.json();
+  const downloadAllBtn = document.getElementById('download-proxies-txt-btn');
 
-    if (!data.leases || data.leases.length === 0) {
+  try {
+    const res = await fetch('/api/user/proxies');
+    if (!res.ok) {
+      if (res.status === 401) {
+        window.location.href = '/index.html';
+        return;
+      }
+      throw new Error(`Failed to load proxies: ${res.status}`);
+    }
+
+    const data = await res.json();
+    const rawList = Array.isArray(data) ? data : (data.leases || data.proxies || []);
+
+    // Filter strictly by user ownership if currentUser profile is present
+    const proxies = rawList.filter(p => {
+      if (!p) return false;
+      if (currentUser && currentUser.id && p.user_id) {
+        return p.user_id.toString() === currentUser.id.toString();
+      }
+      return true;
+    });
+
+    // Only render download options if active proxies exist
+    if (downloadAllBtn) {
+      downloadAllBtn.style.display = proxies.length > 0 ? 'inline-flex' : 'none';
+    }
+
+    // Render Empty State when user has 0 active proxies
+    if (proxies.length === 0) {
+      const priceText = (currentProxyPricing && currentProxyPricing.price_formatted) ? currentProxyPricing.price_formatted : '7,500';
       container.innerHTML = `
-        <div class="cy-proxy-card" style="text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 2.5rem 1.5rem;">
-          🌐 No active proxy leases found.<br>Click <strong>+ Rent Proxy</strong> above to allocate your first dedicated residential IP!
-        </div>`;
+        <div class="proxy-empty-state" style="text-align: center; padding: 3.5rem 1.5rem; background: var(--bg-card); border: 1px dashed var(--border-color); border-radius: var(--radius-lg); margin-top: 0.5rem;">
+          <div style="font-size: 2.75rem; margin-bottom: 0.85rem; line-height: 1;">🌐</div>
+          <h3 style="font-size: 1.15rem; font-weight: 700; color: #f1f5f9; margin-bottom: 0.45rem;">No active proxies found.</h3>
+          <p style="font-size: 0.84rem; color: var(--text-secondary, #94a3b8); max-width: 440px; margin: 0 auto 1.5rem auto; line-height: 1.5;">
+            You have not deployed any static residential ISP proxies yet. Allocate your private, dedicated US/UK residential IP with 0% fraud score.
+          </p>
+          <button class="btn-primary" id="empty-state-deploy-btn" style="padding: 0.75rem 1.6rem; font-size: 0.9rem; font-weight: 700; border-radius: 9999px; box-shadow: 0 4px 20px rgba(59, 130, 246, 0.35); cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem;">
+            <span>⚡ Deploy Your First ISP Proxy (₦${priceText})</span>
+          </button>
+        </div>
+      `;
+
+      const emptyDeployBtn = document.getElementById('empty-state-deploy-btn');
+      if (emptyDeployBtn) {
+        emptyDeployBtn.addEventListener('click', () => {
+          const rentProxyModal = document.getElementById('rent-proxy-modal');
+          if (rentProxyModal) {
+            rentProxyModal.classList.add('active');
+            const countrySelect = document.getElementById('modal-proxy-country');
+            if (countrySelect && !countrySelect.value) countrySelect.value = 'US';
+          }
+        });
+      }
       return;
     }
 
     container.innerHTML = '';
-    const hasProvisioning = data.leases.some(l => l.status === 'provisioning');
+    const hasProvisioning = proxies.some(l => l.status === 'provisioning');
 
-    data.leases.forEach(lease => {
+    // Only render proxy credentials card, copy buttons, and actions if proxies.length > 0
+    proxies.forEach(lease => {
       const card = createProxySellerCard(lease);
       container.appendChild(card);
     });
@@ -1926,14 +1974,17 @@ const createCyberYozhProxyCard = createProxySellerCard;
 // Export active proxies as .txt file
 async function exportProxiesTxt() {
   try {
-    const res = await fetch('/api/proxy/leases');
+    const res = await fetch('/api/user/proxies');
     const data = await res.json();
-    if (!data.leases || data.leases.length === 0) {
+    const rawList = Array.isArray(data) ? data : (data.leases || data.proxies || []);
+    const proxies = rawList.filter(p => !currentUser || !currentUser.id || !p.user_id || p.user_id.toString() === currentUser.id.toString());
+
+    if (!proxies || proxies.length === 0) {
       showToast('No active proxies to download', 'error');
       return;
     }
 
-    const lines = data.leases.map(l => `${l.ip_address}:${l.socks5_port}:${l.socks5_user}:${l.socks5_pass}`);
+    const lines = proxies.map(l => `${l.ip_address}:${l.socks5_port}:${l.socks5_user}:${l.socks5_pass}`);
     const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');

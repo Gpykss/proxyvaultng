@@ -1181,7 +1181,7 @@ app.get('/api/proxy/pricing', async (req, res) => {
 });
 
 // Buy/Rent a static ISP proxy
-app.post('/api/proxy/rent', requireAuth, async (req, res) => {
+app.post(['/api/proxy/rent', '/api/proxies/rent', '/api/proxy/buy', '/api/proxies/buy'], requireAuth, async (req, res) => {
   const { country, isp } = req.body;
   if (!country || typeof country !== 'string' || !/^[A-Za-z]{2}$/.test(country)) {
     return res.status(400).json({ error: 'Invalid country code format.' });
@@ -1314,7 +1314,7 @@ app.post('/api/proxy/rent', requireAuth, async (req, res) => {
 });
 
 // Self-Serve Active Subnet Replacement (within 24 hours of purchase, max 1 replacement safeguard)
-app.post('/api/proxy/replace/:leaseId', requireAuth, async (req, res) => {
+app.post(['/api/proxy/replace/:leaseId', '/api/proxies/replace/:leaseId'], requireAuth, async (req, res) => {
   const { leaseId } = req.params;
   const { reason } = req.body;
 
@@ -1394,13 +1394,17 @@ app.post('/api/proxy/replace/:leaseId', requireAuth, async (req, res) => {
   }
 });
 
-// Download .txt configuration for a proxy lease
-app.get('/api/proxy/download/:leaseId', requireAuth, async (req, res) => {
+// Download .txt configuration for a proxy lease (enforcing strict user ownership)
+app.get(['/api/proxy/download/:leaseId', '/api/proxies/download/:leaseId'], requireAuth, async (req, res) => {
   const { leaseId } = req.params;
   try {
+    const isObjectId = mongoose.Types.ObjectId.isValid(leaseId);
     const lease = await ProxyLease.findOne({
-      _id: leaseId,
       user_id: req.session.userId,
+      $or: [
+        ...(isObjectId ? [{ _id: leaseId }] : []),
+        { order_id: leaseId }
+      ],
       status: 'active'
     });
 
@@ -1505,7 +1509,7 @@ setInterval(() => {
 }, 15000);
 
 // Fetch active proxy leases (strictly scoped to authenticated user and verified order_id)
-app.get('/api/proxy/leases', requireAuth, async (req, res) => {
+app.get(['/api/proxy/leases', '/api/proxies', '/api/user/proxies'], requireAuth, async (req, res) => {
   try {
     // Permanently purge any legacy/leaked leases from the database
     await ProxyLease.deleteMany({
@@ -1520,86 +1524,119 @@ app.get('/api/proxy/leases', requireAuth, async (req, res) => {
     // Automatically poll and sync any pending/provisioning leases for this user
     await syncProvisioningLeases(req.session.userId);
 
-    let leases = await ProxyLease.find({
+    const leases = await ProxyLease.find({
       user_id: req.session.userId,
       order_id: { $exists: true, $ne: null, $ne: '' },
       status: { $in: ['active', 'provisioning'] }
     }).sort({ _id: -1 });
 
-    // Auto-rescue orphaned upstream order if user has no leases
-    if (leases.length === 0) {
-      try {
-        const upstreamProxy = await proxyService.fetchOrderProxy('5281162');
-        if (upstreamProxy && upstreamProxy.ip_address) {
-          const alreadyLinked = await ProxyLease.findOne({ upstream_order_id: '5281162' });
-          if (!alreadyLinked) {
-            const rescuedLease = await ProxyLease.create({
-              user_id: req.session.userId,
-              order_id: '5281162',
-              upstream_provider: 'proxy_seller',
-              upstream_order_id: '5281162',
-              upstream_proxy_id: upstreamProxy.upstream_proxy_id,
-              ip_address: upstreamProxy.ip_address,
-              protocol: 'socks5',
-              http_port: upstreamProxy.http_port,
-              socks5_port: upstreamProxy.socks5_port,
-              socks5_user: upstreamProxy.socks5_user,
-              socks5_pass: upstreamProxy.socks5_pass,
-              wireguard_conf: upstreamProxy.wireguard_conf || '',
-              country: 'US',
-              carrier: 'Verizon/AT&T (ISP Residential)',
-              isp_carrier: 'Verizon/AT&T (ISP Residential)',
-              fraud_score: 0,
-              replacement_count: 0,
-              expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-              status: 'active'
-            });
-            console.log(`[Auto-Rescue] Restored orphaned test order 5281162 to user ${req.session.userId}!`);
-            leases.push(rescuedLease);
-          }
-        }
-      } catch (rescueErr) {
-        console.log('Rescue check skipped:', rescueErr.message);
-      }
+    const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+    const now = Date.now();
+
+    const mapped = leases.map(l => {
+      const ageMs = now - new Date(l.created_at).getTime();
+      const canReplace = ageMs <= ONE_DAY_MS && (l.replacement_count || 0) < 1;
+      const replaceRemainingHours = Math.max(0, Math.ceil((ONE_DAY_MS - ageMs) / (60 * 60 * 1000)));
+
+      return {
+        id: l._id.toString(),
+        order_id: l.order_id,
+        upstream_provider: l.upstream_provider || 'proxy_seller',
+        upstream_proxy_id: l.upstream_proxy_id || l.order_id,
+        user_id: l.user_id.toString(),
+        ip_address: l.ip_address,
+        protocol: l.protocol || 'socks5',
+        http_port: l.http_port || null,
+        socks5_port: l.socks5_port,
+        socks5_user: l.socks5_user,
+        socks5_pass: l.socks5_pass,
+        wireguard_conf: l.wireguard_conf,
+        country: l.country,
+        carrier: l.carrier,
+        isp_carrier: l.isp_carrier || l.carrier || 'Verizon Residential (ISP)',
+        fraud_score: l.fraud_score !== undefined ? l.fraud_score : 0,
+        replacement_count: l.replacement_count || 0,
+        can_replace: canReplace,
+        replace_remaining_hours: replaceRemainingHours,
+        expires_at: l.expires_at ? l.expires_at.toISOString() : null,
+        created_at: l.created_at ? l.created_at.toISOString() : null,
+        status: l.status
+      };
+    });
+
+    // If requested route is /api/proxies or /api/user/proxies, return array directly ([] if empty)
+    if (req.path === '/api/proxies' || req.path === '/api/user/proxies') {
+      return res.status(200).json(mapped);
+    }
+
+    // Default response for /api/proxy/leases
+    return res.status(200).json({
+      leases: mapped,
+      proxies: mapped
+    });
+  } catch (error) {
+    console.error('Error fetching proxy leases:', error.message);
+    res.status(500).json({ error: 'Failed to retrieve proxy leases.' });
+  }
+});
+
+// Single Proxy Inspection Endpoint (strictly scoped to authenticated owner to prevent ID guessing)
+app.get(['/api/proxy/:id', '/api/proxies/:id', '/api/user/proxies/:id'], requireAuth, async (req, res, next) => {
+  const { id } = req.params;
+  if (['leases', 'pricing', 'rent', 'buy'].includes(id.toLowerCase())) {
+    return next();
+  }
+
+  try {
+    const isObjectId = mongoose.Types.ObjectId.isValid(id);
+    const query = {
+      user_id: req.session.userId,
+      $or: [
+        ...(isObjectId ? [{ _id: id }] : []),
+        { order_id: id },
+        { upstream_order_id: id }
+      ]
+    };
+
+    const lease = await ProxyLease.findOne(query);
+
+    if (!lease) {
+      return res.status(404).json({ error: 'Proxy not found or unauthorized.' });
     }
 
     const ONE_DAY_MS = 24 * 60 * 60 * 1000;
     const now = Date.now();
+    const ageMs = now - new Date(lease.created_at).getTime();
+    const canReplace = ageMs <= ONE_DAY_MS && (lease.replacement_count || 0) < 1;
+    const replaceRemainingHours = Math.max(0, Math.ceil((ONE_DAY_MS - ageMs) / (60 * 60 * 1000)));
 
-    res.json({
-      leases: leases.map(l => {
-        const ageMs = now - new Date(l.created_at).getTime();
-        const canReplace = ageMs <= ONE_DAY_MS && (l.replacement_count || 0) < 1;
-        const replaceRemainingHours = Math.max(0, Math.ceil((ONE_DAY_MS - ageMs) / (60 * 60 * 1000)));
-
-        return {
-          id: l._id.toString(),
-          order_id: l.order_id,
-          upstream_provider: l.upstream_provider || 'proxy_seller',
-          upstream_proxy_id: l.upstream_proxy_id || l.order_id,
-          user_id: l.user_id.toString(),
-          ip_address: l.ip_address,
-          protocol: l.protocol || 'socks5',
-          http_port: l.http_port || null,
-          socks5_port: l.socks5_port,
-          socks5_user: l.socks5_user,
-          socks5_pass: l.socks5_pass,
-          wireguard_conf: l.wireguard_conf,
-          country: l.country,
-          carrier: l.carrier,
-          isp_carrier: l.isp_carrier || l.carrier || 'Verizon Residential (ISP)',
-          fraud_score: l.fraud_score !== undefined ? l.fraud_score : 0,
-          replacement_count: l.replacement_count || 0,
-          can_replace: canReplace,
-          replace_remaining_hours: replaceRemainingHours,
-          expires_at: l.expires_at.toISOString(),
-          created_at: l.created_at.toISOString(),
-          status: l.status
-        };
-      })
+    return res.status(200).json({
+      id: lease._id.toString(),
+      order_id: lease.order_id,
+      upstream_provider: lease.upstream_provider || 'proxy_seller',
+      upstream_proxy_id: lease.upstream_proxy_id || lease.order_id,
+      user_id: lease.user_id.toString(),
+      ip_address: lease.ip_address,
+      protocol: lease.protocol || 'socks5',
+      http_port: lease.http_port || null,
+      socks5_port: lease.socks5_port,
+      socks5_user: lease.socks5_user,
+      socks5_pass: lease.socks5_pass,
+      wireguard_conf: lease.wireguard_conf || '',
+      country: lease.country,
+      carrier: lease.carrier,
+      isp_carrier: lease.isp_carrier || lease.carrier || 'Dedicated ISP Residential',
+      fraud_score: lease.fraud_score !== undefined ? lease.fraud_score : 0,
+      replacement_count: lease.replacement_count || 0,
+      can_replace: canReplace,
+      replace_remaining_hours: replaceRemainingHours,
+      expires_at: lease.expires_at ? lease.expires_at.toISOString() : null,
+      created_at: lease.created_at ? lease.created_at.toISOString() : null,
+      status: lease.status
     });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to retrieve proxy leases.' });
+  } catch (err) {
+    console.error('Error fetching proxy details:', err.message);
+    return res.status(500).json({ error: 'Failed to retrieve proxy details.' });
   }
 });
 

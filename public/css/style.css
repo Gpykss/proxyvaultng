@@ -3282,4 +3282,31 @@ img, svg, video, canvas, audio, iframe, embed, object {
   color: #fff;
 }
 
+/* ====================================================
+   Proxy Empty State Component (Data-Isolation & High-Conversion)
+   ==================================================== */
+.proxy-empty-state {
+  text-align: center;
+  padding: 3.75rem 1.5rem;
+  background: var(--bg-card);
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-lg);
+  margin-top: 0.5rem;
+  transition: var(--transition-smooth);
+}
+
+.proxy-empty-state:hover {
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+#empty-state-deploy-btn {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+#empty-state-deploy-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(59, 130, 246, 0.5);
+}
+
+
 
