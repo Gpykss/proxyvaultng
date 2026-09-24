@@ -760,7 +760,6 @@ app.get('/api/v1/sms/services', requireAuth, async (req, res) => {
 
 // Get supported virtual number countries (5SIM integration)
 app.get('/api/v1/sms/countries', requireAuth, async (req, res) => {
-  const isSimulation = process.env.SIMULATION_MODE === 'true';
   const defaultCountries = [
     { id: 'usa', name: 'United States 🇺🇸' },
     { id: 'canada', name: 'Canada 🇨🇦' },
@@ -769,12 +768,8 @@ app.get('/api/v1/sms/countries', requireAuth, async (req, res) => {
     { id: 'nigeria', name: 'Nigeria 🇳🇬' }
   ];
 
-  if (isSimulation) {
-    return res.json({ countries: defaultCountries });
-  }
-
   try {
-    const countriesRes = await axios.get('https://5sim.net/v1/guest/countries', { timeout: 5000 });
+    const countriesRes = await axios.get('https://5sim.net/v1/guest/countries', { timeout: 8000 });
     const countriesObj = countriesRes.data || {};
     const countriesList = Object.entries(countriesObj).map(([id, val]) => {
       const iso = Object.keys(val.iso || {})[0] || '';
@@ -798,8 +793,6 @@ const SMS_CACHE_DURATION_MS = 10 * 60 * 1000; // 10 minutes
 
 // Dynamic SMS catalog endpoint retrieving dynamic services and countries
 app.get('/api/v1/sms/catalog', requireAuth, async (req, res) => {
-  const isSimulation = process.env.SIMULATION_MODE === 'true';
-
   const defaultServices = [
     { id: 'telegram', name: 'Telegram' },
     { id: 'whatsapp', name: 'WhatsApp' },
@@ -815,10 +808,6 @@ app.get('/api/v1/sms/catalog', requireAuth, async (req, res) => {
     { id: 'germany', name: 'Germany 🇩🇪' },
     { id: 'nigeria', name: 'Nigeria 🇳🇬' }
   ];
-
-  if (isSimulation) {
-    return res.json({ services: defaultServices, countries: defaultCountries });
-  }
 
   // Serve from cache if valid
   if (smsCatalogCache && (Date.now() - smsCatalogCacheTime < SMS_CACHE_DURATION_MS)) {
@@ -970,7 +959,8 @@ app.get('/api/v1/sms/operators', requireAuth, async (req, res) => {
     ]
   };
 
-  if (isSimulation) {
+  // If simulation mode without API key, use fallback dataset
+  if (isSimulation && !process.env.SMS_5SIM_API_KEY) {
     const list = operatorsData[targetCountry.toLowerCase()] || operatorsData.usa;
     const fixedRetailPrice = (SMS_PRICES_KOBO[targetService] || 150000) / 100;
     const mapped = list.map(op => ({
