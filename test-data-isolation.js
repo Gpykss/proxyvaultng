@@ -130,8 +130,53 @@ async function runTests() {
   assert.strictEqual(ownerDetails.data.user_id, userAId);
   console.log(`✅ Owner (User A) successfully fetched their own proxy details.`);
 
+  console.log('\n--- 7. Dual-Buyer Test: User B Also Buys a Proxy ---');
+  // Login as User B to activate demo balance in simulation mode
+  const loginB = await userBClient.post('/api/auth/login', { email: emailB, password: 'Password123!' });
+  assert.strictEqual(loginB.status, 200);
+  const buyResB = await userBClient.post('/api/proxy/rent', { country: 'US' });
+  assert.strictEqual(buyResB.status, 201);
+  const leaseB = buyResB.data.lease;
+  console.log(`✅ User B bought their own proxy (id: ${leaseB.id}, IP: ${leaseB.ip_address}, owner: ${leaseB.user_id})`);
+
+  // Verify User A and User B received completely different proxies & credentials
+  assert.notStrictEqual(leaseA.id, leaseB.id, 'Proxy IDs must be completely unique');
+  assert.notStrictEqual(leaseA.ip_address, leaseB.ip_address, 'IP addresses must be completely different');
+  assert.notStrictEqual(leaseA.socks5_user, leaseB.socks5_user, 'SOCKS5 usernames must be completely unique');
+  assert.notStrictEqual(leaseA.socks5_pass, leaseB.socks5_pass, 'SOCKS5 passwords must be completely unique');
+  console.log('✅ Verified: User A and User B received completely DIFFERENT IP addresses, ports, logins, and passwords.');
+
+  // Verify User A ONLY sees User A's proxy
+  const userAProxiesFinal = await userAClient.get('/api/user/proxies');
+  assert(userAProxiesFinal.data.some(p => p.id === leaseA.id), 'User A must see Proxy A');
+  assert(!userAProxiesFinal.data.some(p => p.id === leaseB.id), 'User A MUST NEVER see Proxy B');
+  console.log('✅ Verified: User A dashboard ONLY displays User A proxy (zero trace of User B proxy).');
+
+  // Verify User B ONLY sees User B's proxy
+  const userBProxiesFinal = await userBClient.get('/api/user/proxies');
+  assert(userBProxiesFinal.data.some(p => p.id === leaseB.id), 'User B must see Proxy B');
+  assert(!userBProxiesFinal.data.some(p => p.id === leaseA.id), 'User B MUST NEVER see Proxy A');
+  console.log('✅ Verified: User B dashboard ONLY displays User B proxy (zero trace of User A proxy).');
+
+  // Cross-tenant ID guessing protection
+  try {
+    await userAClient.get(`/api/proxy/${leaseB.id}`);
+    assert.fail('User A should not access User B proxy details');
+  } catch (err) {
+    assert.strictEqual(err.response.status, 404);
+    console.log('✅ User A attempting to inspect User B proxy received 404 unauthorized.');
+  }
+
+  try {
+    await userBClient.get(`/api/proxy/${leaseA.id}`);
+    assert.fail('User B should not access User A proxy details');
+  } catch (err) {
+    assert.strictEqual(err.response.status, 404);
+    console.log('✅ User B attempting to inspect User A proxy received 404 unauthorized.');
+  }
+
   console.log('\n========================================');
-  console.log('🎉 ALL DATA-ISOLATION & SECURITY AUDIT TESTS PASSED!');
+  console.log('🎉 ALL DATA-ISOLATION & DUAL-BUYER TESTS PASSED!');
   console.log('========================================\n');
 }
 
