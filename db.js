@@ -71,7 +71,7 @@ const UserSchema = new mongoose.Schema({
 // 2. Transaction Schema definition
 const TransactionSchema = new mongoose.Schema({
   user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  type: { type: String, required: true, enum: ['deposit', 'proxy_rent', 'sms_rent', 'sms_refund'] },
+  type: { type: String, required: true, enum: ['deposit', 'proxy_rent', 'sms_rent', 'sms_refund', 'proxy_refund'] },
   amount: { type: Number, required: true }, // represented in kobo
   reference: { type: String, unique: true, required: true },
   status: { type: String, required: true, enum: ['pending', 'completed', 'failed'] },

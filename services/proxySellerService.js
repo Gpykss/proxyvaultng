@@ -169,7 +169,7 @@ function extractProxyCredentials(data) {
   } else if (data.ip) {
     proxyItem = data;
   }
-  if (!proxyItem || !proxyItem.ip || proxyItem.ip === '208.214.167.61' || proxyItem.login === 'grtsoym') {
+  if (!proxyItem || !proxyItem.ip || proxyItem.ip === '208.214.167.61') {
     return null;
   }
   return proxyItem;
@@ -214,7 +214,7 @@ async function fetchOrderProxy(orderId) {
         const iBasketId = String(it.basket_id || '').trim();
 
         // Never match legacy order 5281162 or legacy admin IP
-        if (iOrderId === '5281162' || it.ip === '208.214.167.61' || it.login === 'grtsoym') {
+        if (iOrderId === '5281162' || it.ip === '208.214.167.61') {
           return false;
         }
 

@@ -2045,6 +2045,10 @@ async function loadTransactions() {
         typeLabel = 'SMS Refund';
         color = 'var(--emerald-text)';
         sign = '+';
+      } else if (tx.type === 'proxy_refund') {
+        typeLabel = 'ISP Proxy Refund';
+        color = 'var(--emerald-text)';
+        sign = '+';
       }
 
       row.innerHTML = `

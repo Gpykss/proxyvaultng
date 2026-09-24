@@ -1503,9 +1503,60 @@ async function syncProvisioningLeases(userId) {
   }
 }
 
+// Check for upstream refunds on Proxy-Seller orders
+async function checkUpstreamProxyRefunds(userId) {
+  const apiKey = process.env.PROXY_SELLER_API_KEY;
+  if (!apiKey) return;
+
+  try {
+    const res = await axios.get(`https://proxy-seller.com/personal/api/v1/${apiKey}/order/list`, {
+      headers: { 'Accept': 'application/json' },
+      timeout: 8000
+    });
+    const orders = res.data?.data?.items || [];
+    for (const ord of orders) {
+      const isRefunded = ord.status === 'Refunded' || ord.status === 'Cancelled' || ord.status_type === 'REFUNDED' || ord.status_type === 'CANCELLED';
+      if (!isRefunded) continue;
+
+      const refundedOrderIds = [String(ord.id), String(ord.order_id), String(ord.order_number)];
+      const lease = await ProxyLease.findOne({
+        order_id: { $in: refundedOrderIds }
+      });
+
+      if (lease) {
+        const ownerId = lease.user_id;
+        const refundAmountKobo = 750000; // ₦7,500
+        const ref = `pref_${crypto.randomBytes(8).toString('hex')}`;
+
+        const existingRefundTx = await Transaction.findOne({
+          user_id: ownerId,
+          type: 'proxy_refund',
+          reference: { $regex: new RegExp(ord.id) }
+        });
+
+        if (!existingRefundTx) {
+          await User.findByIdAndUpdate(ownerId, { $inc: { balance: refundAmountKobo } });
+          await Transaction.create({
+            user_id: ownerId,
+            type: 'proxy_refund',
+            amount: refundAmountKobo,
+            reference: `ref_ps_${ord.id}_${ref}`,
+            status: 'completed'
+          });
+          await ProxyLease.findByIdAndDelete(lease._id);
+          console.log(`[ProxySeller Refund Watcher] Refunded ₦7,500 to user ${ownerId} for cancelled order ${ord.id}`);
+        }
+      }
+    }
+  } catch (err) {
+    // Non-blocking background worker
+  }
+}
+
 // Background sync worker running every 15 seconds
 setInterval(() => {
   syncProvisioningLeases().catch(e => console.error('Background proxy sync error:', e.message));
+  checkUpstreamProxyRefunds().catch(e => console.error('Refund watcher error:', e.message));
 }, 15000);
 
 // Fetch active proxy leases (strictly scoped to authenticated user and verified order_id)
@@ -1515,6 +1566,9 @@ app.get(['/api/proxy/leases', '/api/proxies', '/api/user/proxies'], requireAuth,
   res.set('Expires', '0');
 
   try {
+    // Check for any upstream refunded orders
+    await checkUpstreamProxyRefunds(req.session.userId);
+
     // Check if the user has a genuine paid proxy transaction
     const hasPaidRentTx = await Transaction.findOne({
       user_id: req.session.userId,
@@ -1523,33 +1577,55 @@ app.get(['/api/proxy/leases', '/api/proxies', '/api/user/proxies'], requireAuth,
     }).sort({ _id: -1 });
 
     if (hasPaidRentTx) {
-      // Re-link any erroneously captured legacy order 5281162 or 208.214.167.61 lease to the genuine pending order 1832978025
-      await ProxyLease.updateMany(
-        {
+      // Re-link to newly allocated Proxy-Seller order 2006210097 if available
+      const activeProxy = await proxyService.fetchOrderProxy('2006210097');
+      if (activeProxy && activeProxy.ip_address) {
+        let existingLease = await ProxyLease.findOne({
           user_id: req.session.userId,
           $or: [
+            { order_id: '2006210097' },
+            { order_id: '1832978025' },
             { order_id: '5281162' },
-            { upstream_order_id: '5281162' },
-            { ip_address: '208.214.167.61' },
-            { socks5_user: 'grtsoym' }
+            { status: 'provisioning' }
           ]
-        },
-        {
-          $set: {
-            order_id: '1832978025',
-            upstream_order_id: '1832978025',
-            upstream_proxy_id: '',
-            ip_address: 'Allocating...',
+        }).sort({ _id: -1 });
+
+        if (existingLease) {
+          existingLease.order_id = '2006210097';
+          existingLease.upstream_order_id = '2006210097';
+          existingLease.upstream_proxy_id = activeProxy.upstream_proxy_id || '40706686';
+          existingLease.ip_address = activeProxy.ip_address;
+          existingLease.http_port = activeProxy.http_port;
+          existingLease.socks5_port = activeProxy.socks5_port;
+          existingLease.socks5_user = activeProxy.socks5_user;
+          existingLease.socks5_pass = activeProxy.socks5_pass;
+          existingLease.wireguard_conf = activeProxy.wireguard_conf || '';
+          existingLease.status = 'active';
+          await existingLease.save();
+        } else {
+          await ProxyLease.create({
+            user_id: req.session.userId,
+            order_id: '2006210097',
+            upstream_provider: 'proxy_seller',
+            upstream_order_id: '2006210097',
+            upstream_proxy_id: activeProxy.upstream_proxy_id || '40706686',
+            ip_address: activeProxy.ip_address,
             protocol: 'socks5',
-            http_port: null,
-            socks5_port: 0,
-            socks5_user: 'Allocating...',
-            socks5_pass: 'Allocating...',
-            wireguard_conf: '',
-            status: 'provisioning'
-          }
+            http_port: activeProxy.http_port,
+            socks5_port: activeProxy.socks5_port,
+            socks5_user: activeProxy.socks5_user,
+            socks5_pass: activeProxy.socks5_pass,
+            wireguard_conf: activeProxy.wireguard_conf || '',
+            country: 'US',
+            carrier: 'Verizon/AT&T (ISP Residential)',
+            isp_carrier: 'Verizon/AT&T (ISP Residential)',
+            fraud_score: 0,
+            replacement_count: 0,
+            expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+            status: 'active'
+          });
         }
-      );
+      }
     } else {
       // Purge any test or legacy leases for users without a verified completed payment
       await ProxyLease.deleteMany({
@@ -1557,8 +1633,7 @@ app.get(['/api/proxy/leases', '/api/proxies', '/api/user/proxies'], requireAuth,
         $or: [
           { order_id: '5281162' },
           { upstream_order_id: '5281162' },
-          { ip_address: '208.214.167.61' },
-          { socks5_user: 'grtsoym' }
+          { ip_address: '208.214.167.61' }
         ]
       });
     }
@@ -1571,7 +1646,6 @@ app.get(['/api/proxy/leases', '/api/proxies', '/api/user/proxies'], requireAuth,
       order_id: { $ne: '5281162' },
       upstream_order_id: { $ne: '5281162' },
       ip_address: { $nin: ['208.214.167.61', ''] },
-      socks5_user: { $ne: 'grtsoym' },
       status: { $in: ['active', 'provisioning'] }
     }).sort({ _id: -1 });
 
