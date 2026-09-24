@@ -1510,13 +1510,22 @@ setInterval(() => {
 
 // Fetch active proxy leases (strictly scoped to authenticated user and verified order_id)
 app.get(['/api/proxy/leases', '/api/proxies', '/api/user/proxies'], requireAuth, async (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+
   try {
-    // Permanently purge any legacy/leaked leases from the database
+    // Permanently purge any legacy/leaked leases and test admin IPs from the database
     await ProxyLease.deleteMany({
       $or: [
         { order_id: null },
         { order_id: { $exists: false } },
         { order_id: '' },
+        { order_id: '5281162' },
+        { upstream_order_id: '5281162' },
+        { ip_address: '208.214.167.61' },
+        { socks5_user: 'grtsoym' },
+        { socks5_pass: 'sS8NrkjQQv' },
         { created_at: { $lt: new Date('2026-08-30T12:00:00Z') } }
       ]
     });
@@ -1526,7 +1535,9 @@ app.get(['/api/proxy/leases', '/api/proxies', '/api/user/proxies'], requireAuth,
 
     const leases = await ProxyLease.find({
       user_id: req.session.userId,
-      order_id: { $exists: true, $ne: null, $ne: '' },
+      order_id: { $exists: true, $ne: null, $nin: ['', '5281162'] },
+      ip_address: { $nin: ['208.214.167.61', null, ''] },
+      socks5_user: { $ne: 'grtsoym' },
       status: { $in: ['active', 'provisioning'] }
     }).sort({ _id: -1 });
 
