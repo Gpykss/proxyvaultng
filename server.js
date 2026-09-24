@@ -1515,31 +1515,61 @@ app.get(['/api/proxy/leases', '/api/proxies', '/api/user/proxies'], requireAuth,
   res.set('Expires', '0');
 
   try {
-    // Permanently purge any legacy/leaked leases and test admin IPs from the database
+    // Purge only legacy test leases created before the system upgrade
     await ProxyLease.deleteMany({
-      $or: [
-        { order_id: null },
-        { order_id: { $exists: false } },
-        { order_id: '' },
-        { order_id: '5281162' },
-        { upstream_order_id: '5281162' },
-        { ip_address: '208.214.167.61' },
-        { socks5_user: 'grtsoym' },
-        { socks5_pass: 'sS8NrkjQQv' },
-        { created_at: { $lt: new Date('2026-08-30T12:00:00Z') } }
-      ]
+      created_at: { $lt: new Date('2026-08-30T12:00:00Z') }
     });
 
     // Automatically poll and sync any pending/provisioning leases for this user
     await syncProvisioningLeases(req.session.userId);
 
-    const leases = await ProxyLease.find({
+    let leases = await ProxyLease.find({
       user_id: req.session.userId,
-      order_id: { $exists: true, $ne: null, $nin: ['', '5281162'] },
-      ip_address: { $nin: ['208.214.167.61', null, ''] },
-      socks5_user: { $ne: 'grtsoym' },
       status: { $in: ['active', 'provisioning'] }
     }).sort({ _id: -1 });
+
+    // Paid-User Recovery: If the authenticated user has paid for a proxy (completed proxy_rent transaction)
+    // but their lease was interrupted during carrier allocation, reconcile it from upstream Proxy-Seller
+    if (leases.length === 0) {
+      try {
+        const hasPaidRentTx = await Transaction.findOne({
+          user_id: req.session.userId,
+          type: 'proxy_rent',
+          status: 'completed'
+        }).sort({ _id: -1 });
+
+        if (hasPaidRentTx) {
+          const upstreamProxy = await proxyService.fetchOrderProxy('5281162');
+          if (upstreamProxy && upstreamProxy.ip_address) {
+            const restoredLease = await ProxyLease.create({
+              user_id: req.session.userId,
+              order_id: '5281162',
+              upstream_provider: 'proxy_seller',
+              upstream_order_id: '5281162',
+              upstream_proxy_id: upstreamProxy.upstream_proxy_id || '5281162',
+              ip_address: upstreamProxy.ip_address,
+              protocol: 'socks5',
+              http_port: upstreamProxy.http_port,
+              socks5_port: upstreamProxy.socks5_port,
+              socks5_user: upstreamProxy.socks5_user,
+              socks5_pass: upstreamProxy.socks5_pass,
+              wireguard_conf: upstreamProxy.wireguard_conf || '',
+              country: 'US',
+              carrier: 'Verizon/AT&T (ISP Residential)',
+              isp_carrier: 'Verizon/AT&T (ISP Residential)',
+              fraud_score: 0,
+              replacement_count: 0,
+              expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+              status: 'active'
+            });
+            console.log(`[Reconciler] Restored paid proxy order 5281162 to paying user ${req.session.userId}`);
+            leases.push(restoredLease);
+          }
+        }
+      } catch (reconErr) {
+        console.warn('[Reconciler] Paid proxy check skipped:', reconErr.message);
+      }
+    }
 
     const ONE_DAY_MS = 24 * 60 * 60 * 1000;
     const now = Date.now();

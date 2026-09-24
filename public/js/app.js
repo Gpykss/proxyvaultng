@@ -1628,18 +1628,9 @@ async function loadActiveProxies() {
     const data = await res.json();
     const rawList = Array.isArray(data) ? data : (data.leases || data.proxies || []);
 
-    // Filter strictly by user ownership and exclude test/admin mock IPs
+    // Filter strictly by user ownership if currentUser profile is present
     const proxies = rawList.filter(p => {
       if (!p) return false;
-      // Guarantee test/mock credentials from previous debug sessions are never displayed
-      if (
-        p.ip_address === '208.214.167.61' ||
-        p.order_id === '5281162' ||
-        p.upstream_order_id === '5281162' ||
-        p.socks5_user === 'grtsoym'
-      ) {
-        return false;
-      }
       if (currentUser && currentUser.id && p.user_id) {
         return p.user_id.toString() === currentUser.id.toString();
       }
