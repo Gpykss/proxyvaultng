@@ -44,5 +44,6 @@ async function replaceProxy({ proxyId, reason = 'NOT_WORK' }) {
 module.exports = {
   provisionProxy,
   replaceProxy,
+  fetchOrderProxy: proxySellerService.fetchOrderProxy,
   proxySellerService
 };

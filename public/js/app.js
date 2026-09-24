@@ -1490,7 +1490,7 @@ async function handleProxyPurchase() {
 
   try {
     buyBtn.disabled = true;
-    buyBtn.innerHTML = '<span class="spinner"></span> Deploying Instant Proxy (< 5s)...';
+    buyBtn.innerHTML = '<span class="spinner"></span> Allocating Dedicated IP... (Please hold, carrier binding subnet)';
 
     // Optimistic balance update
     if (currentUser) {
@@ -1515,7 +1515,14 @@ async function handleProxyPurchase() {
       return;
     }
 
-    showToast('Dedicated static residential ISP proxy provisioned successfully!', 'success');
+    const isProvisioning = data.status === 'provisioning' || (data.lease && data.lease.status === 'provisioning');
+
+    if (isProvisioning) {
+      showToast('⚡ Order confirmed! Upstream carrier is binding your dedicated residential subnet (usually takes 1–3 mins). Auto-refreshing...', 'info');
+    } else {
+      showToast('Dedicated static residential ISP proxy provisioned successfully!', 'success');
+    }
+
     document.getElementById('rent-proxy-modal').classList.remove('active');
     fetchUserProfile();
     loadActiveProxies();
@@ -1544,6 +1551,8 @@ function showProxySuccessModal(lease) {
   const modal = document.getElementById('proxy-success-modal');
   if (!modal) return;
 
+  const isProvisioning = lease.status === 'provisioning';
+
   const ipEl = document.getElementById('modal-success-ip');
   const portEl = document.getElementById('modal-success-port');
   const userEl = document.getElementById('modal-success-user');
@@ -1551,20 +1560,22 @@ function showProxySuccessModal(lease) {
   const metaEl = document.getElementById('modal-success-meta');
   const connStrInput = document.getElementById('modal-success-conn-str');
 
-  const ip = lease.ip_address || '';
+  const ip = isProvisioning ? '⚡ Allocating Dedicated IP...' : (lease.ip_address || '');
   const socksPort = lease.socks5_port || 1080;
   const httpPort = lease.http_port || socksPort;
-  const user = lease.socks5_user || '';
-  const pass = lease.socks5_pass || '';
+  const user = isProvisioning ? 'Binding...' : (lease.socks5_user || '');
+  const pass = isProvisioning ? 'Binding...' : (lease.socks5_pass || '');
   const country = (lease.country || 'US').toUpperCase();
-  const carrier = lease.isp_carrier || lease.carrier || 'Verizon Residential (ISP)';
-  const connStr = `socks5://${user}:${pass}@${ip}:${socksPort}`;
+  const carrier = lease.isp_carrier || lease.carrier || 'Broadband Residential (ISP)';
+  const connStr = isProvisioning 
+    ? 'Order confirmed & paid! Carrier is assigning your private residential subnet (usually 1-3 mins). Dashboard will auto-activate.' 
+    : `socks5://${user}:${pass}@${ip}:${socksPort}`;
 
   if (ipEl) ipEl.textContent = ip;
-  if (portEl) portEl.textContent = `SOCKS5: ${socksPort} | HTTP: ${httpPort}`;
+  if (portEl) portEl.textContent = isProvisioning ? 'Assigning SOCKS5 & HTTP Ports...' : `SOCKS5: ${socksPort} | HTTP: ${httpPort}`;
   if (userEl) userEl.textContent = user;
   if (passEl) passEl.textContent = pass;
-  if (metaEl) metaEl.textContent = `${country} • ${carrier}`;
+  if (metaEl) metaEl.textContent = isProvisioning ? `${country} • Dedicated Carrier Line (Order #${lease.order_id || lease.upstream_order_id})` : `${country} • ${carrier}`;
   if (connStrInput) connStrInput.value = connStr;
 
   // Bind 1-click copies
@@ -1572,6 +1583,10 @@ function showProxySuccessModal(lease) {
     const btn = document.getElementById(btnId);
     if (btn) {
       btn.onclick = () => {
+        if (isProvisioning) {
+          showToast('Credentials will be available once carrier finishes allocation (usually 1–3 mins).', 'info');
+          return;
+        }
         navigator.clipboard.writeText(textToCopy).then(() => showToast(toastMsg, 'success'));
       };
     }
@@ -1611,10 +1626,26 @@ async function loadActiveProxies() {
     }
 
     container.innerHTML = '';
+    const hasProvisioning = data.leases.some(l => l.status === 'provisioning');
+
     data.leases.forEach(lease => {
       const card = createProxySellerCard(lease);
       container.appendChild(card);
     });
+
+    // Auto-polling when a lease is currently being allocated by the upstream carrier
+    if (hasProvisioning) {
+      if (!window._proxyPollInterval) {
+        console.log('[ProxyVault] Provisioning proxy detected. Starting 6-second auto-poll...');
+        window._proxyPollInterval = setInterval(loadActiveProxies, 6000);
+      }
+    } else {
+      if (window._proxyPollInterval) {
+        clearInterval(window._proxyPollInterval);
+        window._proxyPollInterval = null;
+        showToast('🎉 Your dedicated residential IP is now active and ready to use!', 'success');
+      }
+    }
   } catch (err) {
     console.error('Failed to load proxy leases:', err);
   }
@@ -1628,6 +1659,41 @@ function createProxySellerCard(lease) {
   const flagMap = { US: '🇺🇸', GB: '🇬🇧', UK: '🇬🇧', DE: '🇩🇪', CA: '🇨🇦' };
   const countryCode = (lease.country || 'US').toUpperCase();
   const flag = flagMap[countryCode] || '🌐';
+
+  // If currently provisioning, display sleek amber reassuring progress state
+  if (lease.status === 'provisioning') {
+    card.style.borderColor = 'rgba(245, 158, 11, 0.45)';
+    card.style.background = 'linear-gradient(145deg, #171821 0%, #0f1118 100%)';
+    card.innerHTML = `
+      <div class="cy-proxy-header">
+        <div class="cy-proxy-ip-group">
+          <span class="cy-proxy-flag">${flag}</span>
+          <span style="color: #fbbf24; font-weight: 700; font-family: var(--font-mono); font-size: 0.92rem;">⚡ Allocating Dedicated IP...</span>
+        </div>
+
+        <div class="cy-proxy-meta-badges">
+          <div style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.35); padding: 0.2rem 0.65rem; border-radius: 9999px; font-size: 0.72rem; font-weight: 700; display: inline-flex; align-items: center; gap: 0.4rem;">
+            <span class="spinner" style="width: 10px; height: 10px; border-width: 2px; border-top-color: #fbbf24;"></span>
+            <span>Binding Carrier Subnet (1–3m)</span>
+          </div>
+          <div class="prd-carrier-badge">
+            <span>📶</span>
+            <span>${lease.isp_carrier || lease.carrier || 'Broadband Residential'}</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="padding: 1.25rem 0.5rem; text-align: center;">
+        <div style="font-size: 0.88rem; color: #f1f5f9; font-weight: 600; margin-bottom: 0.4rem;">
+          ⚡ Upstream carrier is assigning your private residential IP address.
+        </div>
+        <div style="font-size: 0.78rem; color: #94a3b8; line-height: 1.4;">
+          Please hold! Your order (ID: <strong>${lease.order_id || lease.upstream_order_id}</strong>) is confirmed and paid. Your proxy credentials will automatically appear here once ready.
+        </div>
+      </div>
+    `;
+    return card;
+  }
 
   // Expiry calculation (30d XX:XX:XX)
   const expiresAt = new Date(lease.expires_at).getTime();

@@ -85,12 +85,12 @@ const ProxyLeaseSchema = new mongoose.Schema({
   upstream_provider: { type: String, default: 'proxy_seller' },
   upstream_order_id: { type: String, default: null },
   upstream_proxy_id: { type: String, default: null },
-  ip_address: { type: String, required: true },
+  ip_address: { type: String, default: 'Allocating...' },
   protocol: { type: String, default: 'socks5' },
   http_port: { type: Number, default: null },
-  socks5_port: { type: Number, required: true },
-  socks5_user: { type: String, required: true },
-  socks5_pass: { type: String, required: true },
+  socks5_port: { type: Number, default: 0 },
+  socks5_user: { type: String, default: 'Allocating...' },
+  socks5_pass: { type: String, default: 'Allocating...' },
   wireguard_conf: { type: String, default: '' },
   country: { type: String, required: true },
   carrier: { type: String, default: 'Broadband Residential' },
@@ -98,7 +98,7 @@ const ProxyLeaseSchema = new mongoose.Schema({
   fraud_score: { type: Number, default: 0 },
   replacement_count: { type: Number, default: 0 },
   expires_at: { type: Date, required: true },
-  status: { type: String, required: true, enum: ['active', 'expired'] },
+  status: { type: String, required: true, enum: ['active', 'expired', 'provisioning', 'pending'], default: 'active' },
   created_at: { type: Date, default: Date.now }
 });
 

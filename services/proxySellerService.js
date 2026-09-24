@@ -154,6 +154,82 @@ function resolveCountryNumericId(country) {
 }
 
 /**
+ * Helper to extract proxy credentials from Proxy-Seller items structure
+ */
+function extractProxyCredentials(data) {
+  if (!data) return null;
+  let proxyItem = null;
+  if (Array.isArray(data.items) && data.items.length > 0) {
+    proxyItem = data.items[0];
+  } else if (Array.isArray(data) && data.length > 0) {
+    proxyItem = data[0];
+  } else if (data.items && typeof data.items === 'object') {
+    const keys = Object.keys(data.items);
+    if (keys.length > 0) proxyItem = data.items[keys[0]];
+  } else if (data.ip) {
+    proxyItem = data;
+  }
+  return (proxyItem && proxyItem.ip) ? proxyItem : null;
+}
+
+/**
+ * Fetch active proxy details by orderId from Proxy-Seller /proxy/list/isp
+ */
+async function fetchOrderProxy(orderId) {
+  if (isSimulationMode()) {
+    return generateSimulatedProxy('us');
+  }
+
+  const apiKey = process.env.PROXY_SELLER_API_KEY;
+  if (!apiKey) return null;
+
+  try {
+    const res = await axios.get(`${BASE_URL}${apiKey}/proxy/list/isp`, {
+      params: { orderId: String(orderId) },
+      headers: { 'Accept': 'application/json' },
+      timeout: 8000
+    });
+
+    const body = res.data;
+    if (!body || body.status === 'error') return null;
+
+    let items = body?.data?.items || body?.items || body?.data || [];
+    if (!Array.isArray(items) && typeof items === 'object') {
+      items = Object.values(items);
+    }
+
+    let matched = null;
+    if (Array.isArray(items)) {
+      matched = items.find(it => String(it.order_id) === String(orderId) || String(it.order_number).startsWith(String(orderId))) || items[0];
+    } else {
+      matched = items;
+    }
+
+    if (!matched || !matched.ip) return null;
+
+    const ip = matched.ip || matched.host;
+    const httpPort = matched.port_http || matched.http_port || matched.port;
+    const socks5Port = matched.port_socks5 || matched.socks5_port || matched.port_socks || (httpPort ? httpPort + 1 : 1080);
+    const login = matched.login || matched.user || matched.username;
+    const password = matched.password || matched.pass;
+    const proxyId = String(matched.id || matched.proxy_id || matched.proxyId || '');
+
+    return {
+      upstream_proxy_id: proxyId,
+      ip_address: ip,
+      http_port: Number(httpPort) || null,
+      socks5_port: Number(socks5Port),
+      socks5_user: login,
+      socks5_pass: password,
+      wireguard_conf: buildWireguardConf(ip)
+    };
+  } catch (err) {
+    console.error(`[ProxySeller] Failed to fetch proxy for orderId ${orderId}:`, err.message);
+    return null;
+  }
+}
+
+/**
  * 1. Order Dedicated Static ISP Proxy
  * @param {Object} options
  * @param {string|number} options.countryId - e.g. 'us', 'gb', or 3758
@@ -189,7 +265,7 @@ async function orderDedicatedIsp({ countryId = 'us', periodId = '1m', quantity =
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       },
-      timeout: 10000 // Strict 10-second SLA
+      timeout: 12000
     });
 
     const body = res.data;
@@ -200,18 +276,60 @@ async function orderDedicatedIsp({ countryId = 'us', periodId = '1m', quantity =
     }
 
     const data = body.data || body;
-    let proxyItem = null;
-    let orderId = data.order_id || data.orderId || data.id || null;
+    let proxyItem = extractProxyCredentials(data);
+    let orderId = String(data.order_id || data.orderId || data.id || '');
 
-    if (Array.isArray(data.items) && data.items.length > 0) {
-      proxyItem = data.items[0];
-    } else if (Array.isArray(data) && data.length > 0) {
-      proxyItem = data[0];
-    } else if (data.items && typeof data.items === 'object') {
-      const keys = Object.keys(data.items);
-      if (keys.length > 0) proxyItem = data.items[keys[0]];
-    } else if (data.ip) {
-      proxyItem = data;
+    const carrier = countryId.toLowerCase() === 'us'
+      ? 'Verizon/AT&T (ISP Residential)'
+      : 'BT/Virgin Media (ISP Residential)';
+
+    // If order was created upstream but IP credentials are not yet ready:
+    if (!proxyItem && orderId) {
+      console.log(`[ProxySeller] Order ${orderId} placed successfully. Polling for allocation (up to 15s)...`);
+      for (let attempt = 1; attempt <= 4; attempt++) {
+        await new Promise(r => setTimeout(r, 3000));
+        const fetched = await fetchOrderProxy(orderId);
+        if (fetched && fetched.ip_address) {
+          console.log(`[ProxySeller] Order ${orderId} allocated on attempt ${attempt}: ${fetched.ip_address}`);
+          return {
+            status: 'active',
+            order_id: orderId,
+            upstream_order_id: orderId,
+            upstream_proxy_id: fetched.upstream_proxy_id,
+            upstream_provider: 'proxy_seller',
+            ip_address: fetched.ip_address,
+            http_port: fetched.http_port,
+            socks5_port: fetched.socks5_port,
+            socks5_user: fetched.socks5_user,
+            socks5_pass: fetched.socks5_pass,
+            country: countryId.toUpperCase(),
+            carrier: carrier,
+            isp_carrier: carrier,
+            fraud_score: 0,
+            wireguard_conf: fetched.wireguard_conf
+          };
+        }
+      }
+
+      // If still provisioning after 15s, return provisioning state with confirmed orderId (DO NOT REFUND USER WALLET)
+      console.log(`[ProxySeller] Order ${orderId} still provisioning. Returning provisioning state.`);
+      return {
+        status: 'provisioning',
+        order_id: orderId,
+        upstream_order_id: orderId,
+        upstream_proxy_id: '',
+        upstream_provider: 'proxy_seller',
+        ip_address: 'Allocating...',
+        socks5_port: 0,
+        socks5_user: 'Allocating...',
+        socks5_pass: 'Allocating...',
+        country: countryId.toUpperCase(),
+        carrier: carrier,
+        isp_carrier: carrier,
+        fraud_score: 0,
+        wireguard_conf: '',
+        message: 'Order confirmed! Upstream carrier is allocating your dedicated residential subnet (usually takes 1–3 minutes).'
+      };
     }
 
     if (!proxyItem || !proxyItem.ip) {
@@ -225,11 +343,8 @@ async function orderDedicatedIsp({ countryId = 'us', periodId = '1m', quantity =
     const password = proxyItem.password || proxyItem.pass;
     const proxyId = String(proxyItem.id || proxyItem.proxy_id || proxyItem.proxyId || '');
 
-    const carrier = countryId.toLowerCase() === 'us'
-      ? 'Verizon/AT&T (ISP Residential)'
-      : 'BT/Virgin Media (ISP Residential)';
-
     return {
+      status: 'active',
       order_id: String(orderId || proxyId),
       upstream_order_id: String(orderId || ''),
       upstream_proxy_id: proxyId,
@@ -366,5 +481,6 @@ module.exports = {
   orderDedicatedIsp,
   replaceProxy,
   getBalance,
+  fetchOrderProxy,
   isSimulationMode
 };
