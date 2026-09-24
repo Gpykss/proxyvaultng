@@ -41,19 +41,34 @@
 
     <!-- Interactive Direct Buying Dashboard Widget -->
     <div class="direct-buy-widget" id="direct-buy-widget">
+      <!-- Tab Switcher: Static ISP Proxy vs Instant SMS Verification -->
+      <div class="direct-buy-tabs">
+        <button type="button" class="buy-tab-btn active" id="tab-btn-proxy">
+          <span class="tab-icon">🌐</span>
+          <span class="tab-label">Static ISP Proxy</span>
+          <span class="tab-pill">₦7,500</span>
+        </button>
+        <button type="button" class="buy-tab-btn" id="tab-btn-sms">
+          <span class="tab-icon">📱</span>
+          <span class="tab-label">Instant SMS Verification</span>
+          <span class="tab-pill tab-pill-green">From ₦600</span>
+        </button>
+      </div>
+
       <div class="direct-buy-header">
-        <div class="direct-buy-status">
+        <div class="direct-buy-status" id="direct-buy-status-text">
           <span class="pulse-indicator"></span>
           <span>Dedicated Subnets In Stock • Instant Delivery &lt; 5s</span>
         </div>
-        <div class="direct-buy-badges">
+        <div class="direct-buy-badges" id="direct-buy-badges-row">
           <span class="badge-mini badge-green">🛡️ 0% Fraud Score</span>
           <span class="badge-mini badge-blue">📶 Residential ASN</span>
           <span class="badge-mini badge-purple">⚡ Upwork / PayPal Verified</span>
         </div>
       </div>
 
-      <div class="direct-buy-body">
+      <!-- Tab 1: Static ISP Proxy Content -->
+      <div class="direct-buy-body" id="proxy-tab-content">
         <div class="direct-buy-controls">
           <div class="buy-field-group">
             <label class="buy-field-label" for="landing-proxy-country">Select Target Country</label>
@@ -99,6 +114,10 @@
           <div class="preview-string" id="landing-preview-conn">
             socks5://pv_isp_user:sec_auth@69.181.42.10:1080
           </div>
+          <div class="preview-compatibility-caption">
+            <span class="compat-icon">💡</span>
+            <span><strong>1-Click Compatible with:</strong> AdsPower, Dolphin{anty}, Multilogin, Chrome, Firefox, Proxifier &amp; Windows.</span>
+          </div>
         </div>
 
         <!-- Price & Instant CTA -->
@@ -114,6 +133,87 @@
           <button class="btn btn-primary direct-buy-btn" id="landing-buy-now-btn">
             🚀 Deploy Instant Proxy (₦7,500)
           </button>
+        </div>
+        <div class="direct-buy-trust-note">
+          <span class="trust-icon">⚡</span>
+          <span>Pay via <strong>Instant Bank Transfer</strong>, <strong>OPay</strong>, or <strong>Card</strong> • Automated Provisioning</span>
+        </div>
+      </div>
+
+      <!-- Tab 2: Instant SMS Verification Content -->
+      <div class="direct-buy-body" id="sms-tab-content" style="display: none;">
+        <div class="direct-buy-controls direct-buy-controls-2col">
+          <div class="buy-field-group">
+            <label class="buy-field-label" for="landing-sms-service">1. Target Platform</label>
+            <select class="buy-select" id="landing-sms-service">
+              <option value="whatsapp" data-price="1200" data-code="849-201" selected>💬 WhatsApp (₦1,200)</option>
+              <option value="telegram" data-price="800" data-code="572-194">✈️ Telegram (₦800)</option>
+              <option value="openai" data-price="600" data-code="392015">🤖 OpenAI / ChatGPT (₦600)</option>
+              <option value="google" data-price="750" data-code="G-847291">🔍 Google / Gmail (₦750)</option>
+              <option value="tiktok" data-price="650" data-code="401-829">🎵 TikTok (₦650)</option>
+              <option value="paypal" data-price="1500" data-code="827391">💳 PayPal (₦1,500)</option>
+              <option value="twitter" data-price="700" data-code="519-024">🐦 Twitter / X (₦700)</option>
+            </select>
+          </div>
+          <div class="buy-field-group">
+            <label class="buy-field-label" for="landing-sms-country">2. Number Country</label>
+            <select class="buy-select" id="landing-sms-country">
+              <option value="usa" data-prefix="+1 (202) 843-" selected>🇺🇸 United States (+1)</option>
+              <option value="england" data-prefix="+44 7911 82">🇬🇧 United Kingdom (+44)</option>
+              <option value="canada" data-prefix="+1 (416) 902-">🇨🇦 Canada (+1)</option>
+              <option value="germany" data-prefix="+49 152 092">🇩🇪 Germany (+49)</option>
+              <option value="nigeria" data-prefix="+234 803 912">🇳🇬 Nigeria (+234)</option>
+              <option value="france" data-prefix="+33 6 44 63 ">🇫🇷 France (+33)</option>
+              <option value="netherlands" data-prefix="+31 6 1234 ">🇳🇱 Netherlands (+31)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Live Simulated SMS Output Preview Box -->
+        <div class="direct-buy-preview">
+          <div class="preview-header">
+            <span class="preview-title">⚡ Allocated Temporary Number &amp; OTP Preview:</span>
+            <span class="preview-tag" style="color: #4ade80; background: rgba(34, 197, 94, 0.15);">🟢 Active Window: 15m</span>
+          </div>
+          <div class="preview-string" id="landing-preview-sms-num" style="display: flex; align-items: center; justify-content: space-between;">
+            <span>+1 (202) 843-9104</span>
+            <span style="font-size: 0.72rem; color: #94a3b8; font-weight: 500;">Private Virtual Line</span>
+          </div>
+
+          <!-- Simulated SMS Delivery Bubble -->
+          <div class="sms-preview-msg">
+            <div class="sms-preview-sender">
+              <span class="sms-sender-badge" id="landing-sms-sender-tag">WhatsApp</span>
+              <span class="sms-sender-time">Received in &lt; 12s</span>
+            </div>
+            <div class="sms-preview-body" id="landing-sms-msg-body">
+              Your WhatsApp verification code is: <strong class="sms-code-highlight" id="landing-sms-code-display">849-201</strong>. Do not share with anyone.
+            </div>
+          </div>
+
+          <div class="sms-guarantee-note">
+            <span>🛡️</span>
+            <span><strong>Auto-Refund Guarantee:</strong> Free instant refund to your wallet if SMS code doesn't arrive within 5 minutes.</span>
+          </div>
+        </div>
+
+        <!-- Price & Instant CTA -->
+        <div class="direct-buy-footer">
+          <div class="direct-buy-pricing">
+            <span class="price-duration">Instant OTP Verification:</span>
+            <div class="price-val-group">
+              <span class="price-strike"><del id="landing-sms-strike-val">₦2,000</del></span>
+              <span class="price-current" id="landing-sms-price-val">₦1,200</span>
+              <span class="price-save-badge">Instant</span>
+            </div>
+          </div>
+          <button class="btn btn-primary direct-buy-btn" id="landing-buy-sms-btn" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-color: #059669; box-shadow: 0 4px 18px rgba(16, 185, 129, 0.4);">
+            ⚡ Receive SMS Verification (₦1,200)
+          </button>
+        </div>
+        <div class="direct-buy-trust-note">
+          <span class="trust-icon">⚡</span>
+          <span>Pay via <strong>Instant Bank Transfer</strong>, <strong>OPay</strong>, or <strong>Card</strong> • Free Instant Refund if no SMS</span>
         </div>
       </div>
     </div>
@@ -295,6 +395,20 @@
     </div>
   </div>
 
+  <!-- Floating WhatsApp Quick Support Trigger -->
+  <a href="https://wa.me/2348000000000?text=Hello%20ProxyVault%2C%20I%20have%20an%20inquiry%20about%20your%20services" target="_blank" rel="noopener noreferrer" class="floating-whatsapp-btn" id="floating-whatsapp-btn" title="Chat with us on WhatsApp">
+    <div class="wa-icon-bubble">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.771-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.312.045-.698.077-1.111-.061-.264-.087-.584-.21-1.004-.396-1.785-.79-2.952-2.607-3.042-2.727-.089-.12-.727-.968-.727-1.848 0-.88.461-1.312.625-1.488.164-.176.357-.22.476-.22.12 0 .239.001.343.006.11.005.258-.042.404.308.15.361.512 1.25.556 1.341.045.09.075.195.015.314-.06.12-.09.195-.18.3-.089.105-.188.234-.268.315-.09.09-.184.187-.079.367.105.18.467.77 1.001 1.246.688.614 1.269.805 1.449.895.18.09.285.075.39-.045.105-.12.45-.525.57-.705.12-.18.239-.15.399-.09.16.06 1.02.481 1.196.568.176.087.294.132.338.207.045.075.045.435-.099.84z"/>
+        <path d="M12 2C6.477 2 2 6.477 2 12c0 1.891.524 3.66 1.434 5.176L2 22l4.981-1.393A9.957 9.957 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18.162c-1.637 0-3.155-.494-4.425-1.343l-.317-.213-2.958.827.842-2.887-.234-.339A8.127 8.127 0 013.84 12c0-4.5 3.66-8.162 8.16-8.162 4.501 0 8.162 3.662 8.162 8.162 0 4.5-3.661 8.162-8.162 8.162z"/>
+      </svg>
+    </div>
+    <div class="wa-text-group">
+      <span class="wa-title">Need Help? Chat on WhatsApp</span>
+      <span class="wa-subtitle">⚡ Quick Replies • Online</span>
+    </div>
+  </a>
+
   <div class="toast-container" id="toast-container"></div>
 
   <!-- Client-side Logic Script -->
@@ -338,18 +452,39 @@
       e.preventDefault();
       isLogin = !isLogin;
       const hasPendingBuy = !!sessionStorage.getItem('pv_pending_buy');
-      const currentPriceFmt = window.currentProxyPriceFmt || '6,826';
+      const pendingSmsRaw = sessionStorage.getItem('pv_pending_sms');
+      const pendingSms = pendingSmsRaw ? JSON.parse(pendingSmsRaw) : null;
+      const currentPriceFmt = window.currentProxyPriceFmt || '7,500';
+
       if (isLogin) {
         authTitle.textContent = 'Welcome Back';
-        authSubtitle.textContent = hasPendingBuy ? 'Log in to deploy your selected ISP proxy' : 'Log in to manage your static IPs and OTP numbers';
-        submitBtn.textContent = hasPendingBuy ? `Log In & Deploy (₦${currentPriceFmt})` : 'Log In';
+        if (pendingSms) {
+          authSubtitle.textContent = `Log in to receive your ${pendingSms.serviceName} verification code`;
+          submitBtn.textContent = `Log In & Get Code (${pendingSms.priceFmt})`;
+        } else if (hasPendingBuy) {
+          authSubtitle.textContent = 'Log in to deploy your selected ISP proxy';
+          submitBtn.textContent = `Log In & Deploy (₦${currentPriceFmt})`;
+        } else {
+          authSubtitle.textContent = 'Log in to manage your static IPs and OTP numbers';
+          submitBtn.textContent = 'Log In';
+        }
         submitBtn.className = 'btn btn-primary';
         toggleText.textContent = "Don't have an account?";
         toggleBtn.textContent = 'Create Account';
       } else {
-        authTitle.textContent = hasPendingBuy ? 'Create Account to Deploy' : 'Create Account';
-        authSubtitle.textContent = hasPendingBuy ? 'Register to fund wallet and deploy your dedicated ISP proxy' : 'Register to fund wallet and allocate global resources';
-        submitBtn.textContent = hasPendingBuy ? `Sign Up & Deploy (₦${currentPriceFmt})` : 'Sign Up';
+        if (pendingSms) {
+          authTitle.textContent = 'Create Account to Get Code';
+          authSubtitle.textContent = `Sign up in seconds to receive your ${pendingSms.serviceName} verification code (${pendingSms.priceFmt})`;
+          submitBtn.textContent = `Sign Up & Verify (${pendingSms.priceFmt})`;
+        } else if (hasPendingBuy) {
+          authTitle.textContent = 'Create Account to Deploy';
+          authSubtitle.textContent = 'Register to fund wallet and deploy your dedicated ISP proxy';
+          submitBtn.textContent = `Sign Up & Deploy (₦${currentPriceFmt})`;
+        } else {
+          authTitle.textContent = 'Create Account';
+          authSubtitle.textContent = 'Register to fund wallet and allocate global resources';
+          submitBtn.textContent = 'Sign Up';
+        }
         submitBtn.className = 'btn btn-secondary';
         toggleText.textContent = 'Already registered?';
         toggleBtn.textContent = 'Log In';
@@ -357,205 +492,98 @@
     });
 
     // ----------------------------------------------------
-    // DIRECT BUYING WIDGET (LANDING PAGE)
+    // DUAL-TAB DIRECT BUYING WIDGET (LANDING PAGE)
+    // ----------------------------------------------------
+    const tabBtnProxy = document.getElementById('tab-btn-proxy');
+    const tabBtnSms = document.getElementById('tab-btn-sms');
+    const proxyTabContent = document.getElementById('proxy-tab-content');
+    const smsTabContent = document.getElementById('sms-tab-content');
+    const directBuyStatusText = document.getElementById('direct-buy-status-text');
+    const directBuyBadgesRow = document.getElementById('direct-buy-badges-row');
+
+    if (tabBtnProxy && tabBtnSms) {
+      tabBtnProxy.addEventListener('click', () => {
+        tabBtnProxy.classList.add('active');
+        tabBtnSms.classList.remove('active');
+        if (proxyTabContent) proxyTabContent.style.display = 'block';
+        if (smsTabContent) smsTabContent.style.display = 'none';
+
+        if (directBuyStatusText) {
+          directBuyStatusText.innerHTML = `
+            <span class="pulse-indicator"></span>
+            <span>Dedicated Subnets In Stock • Instant Delivery &lt; 5s</span>
+          `;
+        }
+        if (directBuyBadgesRow) {
+          directBuyBadgesRow.innerHTML = `
+            <span class="badge-mini badge-green">🛡️ 0% Fraud Score</span>
+            <span class="badge-mini badge-blue">📶 Residential ASN</span>
+            <span class="badge-mini badge-purple">⚡ Upwork / PayPal Verified</span>
+          `;
+        }
+      });
+
+      tabBtnSms.addEventListener('click', () => {
+        tabBtnSms.classList.add('active');
+        tabBtnProxy.classList.remove('active');
+        if (smsTabContent) smsTabContent.style.display = 'block';
+        if (proxyTabContent) proxyTabContent.style.display = 'none';
+
+        if (directBuyStatusText) {
+          directBuyStatusText.innerHTML = `
+            <span class="pulse-indicator" style="background:#10b981; box-shadow:0 0 8px #10b981;"></span>
+            <span>⚡ 100% Real Physical SIMs • Auto-Refund If No Code</span>
+          `;
+        }
+        if (directBuyBadgesRow) {
+          directBuyBadgesRow.innerHTML = `
+            <span class="badge-mini badge-green">⚡ Instant 10s OTP</span>
+            <span class="badge-mini badge-blue">📱 WhatsApp &amp; Telegram Ready</span>
+            <span class="badge-mini badge-purple">🛡️ Auto-Refund Guarantee</span>
+          `;
+        }
+      });
+    }
+
+    // ----------------------------------------------------
+    // TAB 1: PROXY PREVIEW & BUY
     // ----------------------------------------------------
     const landingCountrySelect = document.getElementById('landing-proxy-country');
     const landingPreviewConn = document.getElementById('landing-preview-conn');
     const landingBuyNowBtn = document.getElementById('landing-buy-now-btn');
 
-    const countryCarrierData = {
-      US: {
-        carriers: [
-          { value: 'any', label: '⚡ Instant Auto-Select (Lowest 0% Fraud Score)' },
-          { value: 'Verizon', label: 'Verizon Fios Residential (US)' },
-          { value: 'AT&T', label: 'AT&T Internet Residential (US)' },
-          { value: 'Comcast', label: 'Comcast Cable Residential (US)' }
-        ],
-        sampleIp: '69.181.42.10'
-      },
-      GB: {
-        carriers: [
-          { value: 'any', label: '⚡ Instant Auto-Select (Lowest 0% Fraud Score)' },
-          { value: 'BT', label: 'BT Broadband Residential (UK)' },
-          { value: 'Virgin', label: 'Virgin Media Residential (UK)' },
-          { value: 'Sky', label: 'Sky UK Residential (UK)' }
-        ],
-        sampleIp: '82.132.218.45'
-      },
-      CA: {
-        carriers: [
-          { value: 'any', label: '⚡ Instant Auto-Select (Lowest 0% Fraud Score)' },
-          { value: 'Rogers', label: 'Rogers Cable Residential (CA)' },
-          { value: 'Bell', label: 'Bell Canada Residential (CA)' }
-        ],
-        sampleIp: '174.114.78.22'
-      },
-      DE: {
-        carriers: [
-          { value: 'any', label: '⚡ Instant Auto-Select (Lowest 0% Fraud Score)' },
-          { value: 'Telekom', label: 'Deutsche Telekom Residential (DE)' },
-          { value: 'Vodafone', label: 'Vodafone Kabel Residential (DE)' }
-        ],
-        sampleIp: '178.25.132.88'
-      },
-      FR: {
-        carriers: [
-          { value: 'any', label: '⚡ Instant Auto-Select (Lowest 0% Fraud Score)' },
-          { value: 'Orange', label: 'Orange France Residential (FR)' },
-          { value: 'Free', label: 'Free SAS Residential (FR)' }
-        ],
-        sampleIp: '90.84.142.60'
-      },
-      NL: {
-        carriers: [
-          { value: 'any', label: '⚡ Instant Auto-Select (Lowest 0% Fraud Score)' },
-          { value: 'KPN', label: 'KPN Residential (NL)' },
-          { value: 'Ziggo', label: 'Ziggo Broadband (NL)' }
-        ],
-        sampleIp: '84.106.12.91'
-      },
-      ES: {
-        carriers: [
-          { value: 'any', label: '⚡ Instant Auto-Select (Lowest 0% Fraud Score)' },
-          { value: 'Movistar', label: 'Movistar Residential (ES)' },
-          { value: 'Vodafone', label: 'Vodafone Espana (ES)' }
-        ],
-        sampleIp: '88.1.144.52'
-      },
-      IT: {
-        carriers: [
-          { value: 'any', label: '⚡ Instant Auto-Select (Lowest 0% Fraud Score)' },
-          { value: 'TIM', label: 'Telecom Italia Mobile (IT)' },
-          { value: 'Vodafone', label: 'Vodafone Omnitel (IT)' }
-        ],
-        sampleIp: '79.44.112.33'
-      },
-      PL: {
-        carriers: [
-          { value: 'any', label: '⚡ Instant Auto-Select (Lowest 0% Fraud Score)' },
-          { value: 'Orange', label: 'Orange Polska Residential (PL)' },
-          { value: 'UPC', label: 'UPC Polska Residential (PL)' }
-        ],
-        sampleIp: '89.64.120.15'
-      },
-      SG: {
-        carriers: [
-          { value: 'any', label: '⚡ Instant Auto-Select (Lowest 0% Fraud Score)' },
-          { value: 'Singtel', label: 'Singtel Residential (SG)' },
-          { value: 'StarHub', label: 'StarHub Broadband (SG)' }
-        ],
-        sampleIp: '118.200.44.82'
-      },
-      JP: {
-        carriers: [
-          { value: 'any', label: '⚡ Instant Auto-Select (Lowest 0% Fraud Score)' },
-          { value: 'NTT', label: 'NTT Communications (JP)' },
-          { value: 'SoftBank', label: 'SoftBank BB Residential (JP)' }
-        ],
-        sampleIp: '126.158.74.19'
-      },
-      BR: {
-        carriers: [
-          { value: 'any', label: '⚡ Instant Auto-Select (Lowest 0% Fraud Score)' },
-          { value: 'Claro', label: 'Claro Brasil Residential (BR)' },
-          { value: 'Vivo', label: 'Telefonica Brasil / Vivo (BR)' }
-        ],
-        sampleIp: '177.18.204.30'
-      },
-      HK: {
-        carriers: [
-          { value: 'any', label: '⚡ Instant Auto-Select (Lowest 0% Fraud Score)' },
-          { value: 'HKT', label: 'HKT / PCCW Residential (HK)' },
-          { value: 'HKBN', label: 'Hong Kong Broadband (HK)' }
-        ],
-        sampleIp: '218.102.88.14'
-      },
-      IN: {
-        carriers: [
-          { value: 'any', label: '⚡ Instant Auto-Select (Lowest 0% Fraud Score)' },
-          { value: 'Jio', label: 'Reliance Jio Fiber (IN)' },
-          { value: 'Airtel', label: 'Bharti Airtel Broadband (IN)' }
-        ],
-        sampleIp: '106.195.42.11'
-      },
-      KR: {
-        carriers: [
-          { value: 'any', label: '⚡ Instant Auto-Select (Lowest 0% Fraud Score)' },
-          { value: 'KT', label: 'Korea Telecom Residential (KR)' },
-          { value: 'SK', label: 'SK Broadband (KR)' }
-        ],
-        sampleIp: '121.134.80.25'
-      },
-      AT: {
-        carriers: [
-          { value: 'any', label: '⚡ Instant Auto-Select (Lowest 0% Fraud Score)' },
-          { value: 'A1', label: 'A1 Telekom Austria (AT)' }
-        ],
-        sampleIp: '80.120.15.44'
-      },
-      CZ: {
-        carriers: [
-          { value: 'any', label: '⚡ Instant Auto-Select (Lowest 0% Fraud Score)' },
-          { value: 'O2', label: 'O2 Czech Republic (CZ)' }
-        ],
-        sampleIp: '89.102.14.77'
-      },
-      RO: {
-        carriers: [
-          { value: 'any', label: '⚡ Instant Auto-Select (Lowest 0% Fraud Score)' },
-          { value: 'Digi', label: 'RCS & RDS / Digi (RO)' }
-        ],
-        sampleIp: '86.120.94.33'
-      },
-      LV: {
-        carriers: [
-          { value: 'any', label: '⚡ Instant Auto-Select (Lowest 0% Fraud Score)' },
-          { value: 'Tet', label: 'Tet SIA Residential (LV)' }
-        ],
-        sampleIp: '84.237.110.12'
-      },
-      TW: {
-        carriers: [
-          { value: 'any', label: '⚡ Instant Auto-Select (Lowest 0% Fraud Score)' },
-          { value: 'Chunghwa', label: 'Chunghwa Telecom (TW)' }
-        ],
-        sampleIp: '114.36.122.84'
-      },
-      TH: {
-        carriers: [
-          { value: 'any', label: '⚡ Instant Auto-Select (Lowest 0% Fraud Score)' },
-          { value: 'AIS', label: 'AIS Fibre Residential (TH)' }
-        ],
-        sampleIp: '110.168.45.60'
-      },
-      TR: {
-        carriers: [
-          { value: 'any', label: '⚡ Instant Auto-Select (Lowest 0% Fraud Score)' },
-          { value: 'TurkTelekom', label: 'Turk Telekomunikasyon (TR)' }
-        ],
-        sampleIp: '88.244.112.90'
-      },
-      IL: {
-        carriers: [
-          { value: 'any', label: '⚡ Instant Auto-Select (Lowest 0% Fraud Score)' },
-          { value: 'Bezeq', label: 'Bezeq The Israel Telecom (IL)' }
-        ],
-        sampleIp: '84.108.77.21'
-      },
-      UA: {
-        carriers: [
-          { value: 'any', label: '⚡ Instant Auto-Select (Lowest 0% Fraud Score)' },
-          { value: 'Kyivstar', label: 'Kyivstar GSM Residential (UA)' }
-        ],
-        sampleIp: '94.178.55.102'
-      }
+    const countrySampleIps = {
+      US: '69.181.42.10',
+      GB: '82.132.218.45',
+      CA: '174.114.78.22',
+      DE: '178.25.132.88',
+      FR: '90.84.142.60',
+      NL: '84.106.12.91',
+      ES: '88.1.144.52',
+      IT: '79.44.112.33',
+      PL: '89.64.120.15',
+      SG: '118.200.44.82',
+      JP: '126.158.74.19',
+      BR: '177.18.204.30',
+      HK: '218.102.88.14',
+      IN: '106.195.42.11',
+      KR: '121.134.80.25',
+      AT: '80.120.15.44',
+      CZ: '89.102.14.77',
+      RO: '86.120.94.33',
+      LV: '84.237.110.12',
+      TW: '114.36.122.84',
+      TH: '110.168.45.60',
+      TR: '88.244.112.90',
+      IL: '84.108.77.21',
+      UA: '94.178.55.102'
     };
 
     function updateLandingPreview() {
       if (!landingCountrySelect || !landingPreviewConn) return;
       const c = (landingCountrySelect.value || 'US').toUpperCase();
-      const info = countryCarrierData[c] || countryCarrierData.US;
-      landingPreviewConn.textContent = `socks5://pv_isp_user:sec_auth@${info.sampleIp}:1080`;
+      const ip = countrySampleIps[c] || countrySampleIps.US;
+      landingPreviewConn.textContent = `socks5://pv_isp_user:sec_auth@${ip}:1080`;
     }
 
     if (landingCountrySelect) {
@@ -590,6 +618,7 @@
         const currentPriceFmt = window.currentProxyPriceFmt || '7,500';
         
         // Save pending purchase intent
+        sessionStorage.removeItem('pv_pending_sms');
         sessionStorage.setItem('pv_pending_buy', JSON.stringify({
           country,
           isp: 'any',
@@ -605,6 +634,97 @@
         submitBtn.className = 'btn btn-secondary';
         toggleText.textContent = 'Already registered?';
         toggleBtn.textContent = 'Log In & Deploy';
+        authModal.classList.add('active');
+      });
+    }
+
+    // ----------------------------------------------------
+    // TAB 2: SMS OTP LIVE INTERACTION & PREVIEW
+    // ----------------------------------------------------
+    const smsServiceSelect = document.getElementById('landing-sms-service');
+    const smsCountrySelect = document.getElementById('landing-sms-country');
+    const smsNumPreview = document.getElementById('landing-preview-sms-num');
+    const smsSenderTag = document.getElementById('landing-sms-sender-tag');
+    const smsMsgBody = document.getElementById('landing-sms-msg-body');
+    const smsPriceVal = document.getElementById('landing-sms-price-val');
+    const smsStrikeVal = document.getElementById('landing-sms-strike-val');
+    const landingBuySmsBtn = document.getElementById('landing-buy-sms-btn');
+
+    function updateSmsLandingPreview() {
+      if (!smsServiceSelect || !smsCountrySelect) return;
+
+      const selectedServiceOpt = smsServiceSelect.options[smsServiceSelect.selectedIndex];
+      const selectedCountryOpt = smsCountrySelect.options[smsCountrySelect.selectedIndex];
+
+      const price = parseInt(selectedServiceOpt.getAttribute('data-price') || '600', 10);
+      const code = selectedServiceOpt.getAttribute('data-code') || '582-194';
+      const serviceName = selectedServiceOpt.textContent.replace(/^[^\w\s]+|\s*\(.*?\)$/g, '').trim();
+
+      const prefix = selectedCountryOpt.getAttribute('data-prefix') || '+1 (202) 843-';
+      const fakeSuffix = Math.floor(1000 + Math.random() * 9000);
+      const simulatedNum = `${prefix}${fakeSuffix}`;
+
+      // Update phone number display
+      if (smsNumPreview) {
+        smsNumPreview.innerHTML = `
+          <span>${simulatedNum}</span>
+          <span style="font-size: 0.72rem; color: #94a3b8; font-weight: 500;">Private Virtual Line</span>
+        `;
+      }
+
+      // Update sender badge
+      if (smsSenderTag) {
+        smsSenderTag.textContent = serviceName;
+      }
+
+      // Update SMS message body and code
+      if (smsMsgBody) {
+        smsMsgBody.innerHTML = `Your ${serviceName} verification code is: <strong class="sms-code-highlight" id="landing-sms-code-display">${code}</strong>. Do not share with anyone.`;
+      }
+
+      // Update pricing display
+      const priceFmt = Number(price).toLocaleString('en-US');
+      const strikeFmt = Number(Math.round(price * 1.6)).toLocaleString('en-US');
+      if (smsPriceVal) smsPriceVal.textContent = `₦${priceFmt}`;
+      if (smsStrikeVal) smsStrikeVal.textContent = `₦${strikeFmt}`;
+      if (landingBuySmsBtn) {
+        landingBuySmsBtn.innerHTML = `⚡ Receive SMS Verification (₦${priceFmt})`;
+      }
+    }
+
+    if (smsServiceSelect) smsServiceSelect.addEventListener('change', updateSmsLandingPreview);
+    if (smsCountrySelect) smsCountrySelect.addEventListener('change', updateSmsLandingPreview);
+
+    if (landingBuySmsBtn) {
+      landingBuySmsBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const selectedServiceOpt = smsServiceSelect ? smsServiceSelect.options[smsServiceSelect.selectedIndex] : null;
+        const selectedCountryOpt = smsCountrySelect ? smsCountrySelect.options[smsCountrySelect.selectedIndex] : null;
+
+        const price = parseInt(selectedServiceOpt?.getAttribute('data-price') || '1200', 10);
+        const priceFmt = Number(price).toLocaleString('en-US');
+        const service = smsServiceSelect ? smsServiceSelect.value : 'whatsapp';
+        const serviceName = selectedServiceOpt ? selectedServiceOpt.textContent.replace(/^[^\w\s]+|\s*\(.*?\)$/g, '').trim() : 'WhatsApp';
+        const country = smsCountrySelect ? smsCountrySelect.value : 'usa';
+        const countryName = selectedCountryOpt ? selectedCountryOpt.textContent.replace(/^[^\w\s]+|\s*\(.*?\)$/g, '').trim() : 'United States';
+
+        sessionStorage.removeItem('pv_pending_buy');
+        sessionStorage.setItem('pv_pending_sms', JSON.stringify({
+          service,
+          serviceName,
+          country,
+          countryName,
+          price,
+          priceFmt: `₦${priceFmt}`
+        }));
+
+        isLogin = false;
+        authTitle.textContent = 'Create Account for Instant SMS';
+        authSubtitle.textContent = `Sign up in seconds to receive your ${serviceName} OTP verification code (₦${priceFmt})`;
+        submitBtn.textContent = `Sign Up & Get Number (₦${priceFmt})`;
+        submitBtn.className = 'btn btn-secondary';
+        toggleText.textContent = 'Already registered?';
+        toggleBtn.textContent = 'Log In & Get Number';
         authModal.classList.add('active');
       });
     }
@@ -636,8 +756,13 @@
 
         showToast(isLogin ? 'Welcome to ProxyVault!' : 'Registration successful! Logging in...', 'success');
 
+        const hasPendingSms = !!sessionStorage.getItem('pv_pending_sms');
         setTimeout(() => {
-          window.location.href = '/dashboard';
+          if (hasPendingSms) {
+            window.location.href = '/dashboard?intent=sms';
+          } else {
+            window.location.href = '/dashboard';
+          }
         }, 1200);
 
       } catch (err) {
@@ -736,6 +861,19 @@
       });
     }
   </script>
+
+  <!-- Floating WhatsApp Quick Contact Trigger -->
+  <a href="https://wa.me/2348000000000?text=Hello%20ProxyVault%2C%20I%20have%20an%20inquiry%20about%20your%20services" target="_blank" rel="noopener noreferrer" class="floating-whatsapp-btn" title="Chat on WhatsApp">
+    <div class="wa-icon-bubble">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
+      </svg>
+    </div>
+    <div class="wa-text-group">
+      <span class="wa-title">Need Help? Chat on WhatsApp</span>
+      <span class="wa-subtitle">Instant Reply • Active Now</span>
+    </div>
+  </a>
 
   <!-- Floating Telegram Support Button -->
   <a href="https://t.me/ProxyvaultSupportBot?start=support" target="_blank" rel="noopener noreferrer" class="floating-support-btn" title="Chat with Support">

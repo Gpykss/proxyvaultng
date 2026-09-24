@@ -147,6 +147,24 @@ async function initDashboard() {
       }
     }
 
+    // Check for landing page direct SMS intent
+    const pendingSmsRaw = sessionStorage.getItem('pv_pending_sms');
+    if (pendingSmsRaw || urlParams.get('intent') === 'sms') {
+      try {
+        let pendingSms = null;
+        if (pendingSmsRaw) {
+          pendingSms = JSON.parse(pendingSmsRaw);
+          sessionStorage.removeItem('pv_pending_sms');
+        }
+        switchView('#sms-view');
+        const serviceName = pendingSms?.serviceName || 'SMS';
+        const countryName = pendingSms?.countryName || '';
+        showToast(`Ready for ${serviceName} OTP verification ${countryName ? '(' + countryName + ')' : ''}. Select your service below to receive code!`, 'info');
+      } catch (e) {
+        console.error('Error handling pending sms intent:', e);
+      }
+    }
+
     // Refresh wallet balance & orders periodically
     setInterval(() => {
       fetchUserProfile();

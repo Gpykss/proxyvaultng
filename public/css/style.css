@@ -1771,7 +1771,7 @@ img, svg, video, canvas, audio, iframe, embed, object {
 /* Floating Telegram Support Button */
 .floating-support-btn {
   position: fixed;
-  bottom: 1.5rem;
+  bottom: 5.25rem;
   right: 1.5rem;
   background: #0284c7;
   color: #fff;
@@ -2280,6 +2280,253 @@ img, svg, video, canvas, audio, iframe, embed, object {
   background: linear-gradient(135deg, #0369a1 0%, #075985 100%);
   transform: translateY(-1px);
   box-shadow: 0 6px 24px rgba(2, 132, 199, 0.55);
+}
+
+/* Tab Switcher on Direct Buying Widget */
+.direct-buy-tabs {
+  display: flex;
+  background: #080f1a;
+  border-bottom: 1px solid var(--border-color);
+  padding: 0.35rem 0.5rem;
+  gap: 0.35rem;
+}
+
+.buy-tab-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.65rem 0.85rem;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-family: var(--font-main);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.buy-tab-btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.buy-tab-btn.active {
+  background: #142236;
+  border-color: rgba(56, 189, 248, 0.35);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.tab-pill {
+  font-size: 0.68rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 9999px;
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  font-family: var(--font-mono);
+  font-weight: 700;
+}
+
+.tab-pill-green {
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+}
+
+/* Clarified Compatibility Caption */
+.preview-compatibility-caption {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.65rem;
+  font-size: 0.74rem;
+  color: #94a3b8;
+  line-height: 1.4;
+  background: rgba(15, 23, 42, 0.4);
+  padding: 0.4rem 0.65rem;
+  border-radius: var(--radius-sm);
+  border-left: 2px solid #38bdf8;
+}
+
+.preview-compatibility-caption strong {
+  color: #f1f5f9;
+  font-weight: 600;
+}
+
+.preview-compatibility-caption .compat-icon {
+  font-size: 0.85rem;
+  color: #38bdf8;
+  flex-shrink: 0;
+}
+
+/* Micro-Copy Trust Badge under CTA */
+.direct-buy-trust-note {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  margin-top: 0.85rem;
+  font-size: 0.76rem;
+  color: #94a3b8;
+  text-align: center;
+  line-height: 1.4;
+  padding: 0.5rem 0.75rem;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: var(--radius-sm);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.direct-buy-trust-note strong {
+  color: #f1f5f9;
+  font-weight: 600;
+}
+
+.direct-buy-trust-note .trust-icon {
+  color: #f59e0b;
+  font-size: 0.85rem;
+}
+
+/* SMS Interactive Mockup Styles */
+.direct-buy-controls-2col {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1rem;
+}
+
+.sms-preview-msg {
+  margin-top: 0.65rem;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  border-radius: var(--radius-sm);
+  padding: 0.65rem 0.85rem;
+}
+
+.sms-preview-sender {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.35rem;
+}
+
+.sms-sender-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.15);
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
+}
+
+.sms-sender-time {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+.sms-preview-body {
+  font-size: 0.8rem;
+  color: #cbd5e1;
+  line-height: 1.4;
+  font-family: var(--font-main);
+}
+
+.sms-code-highlight {
+  color: #4ade80;
+  background: rgba(34, 197, 94, 0.15);
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+}
+
+.sms-guarantee-note {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.65rem;
+  font-size: 0.72rem;
+  color: #a7f3d0;
+  line-height: 1.35;
+}
+
+/* Floating WhatsApp / Quick Contact Trigger */
+.floating-whatsapp-btn {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+  color: #fff !important;
+  padding: 0.75rem 1.15rem;
+  border-radius: 9999px;
+  box-shadow: 0 10px 25px rgba(37, 211, 102, 0.35), 0 4px 12px rgba(0, 0, 0, 0.4);
+  text-decoration: none;
+  font-family: var(--font-main);
+  z-index: 999;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.floating-whatsapp-btn:hover {
+  transform: translateY(-3px) scale(1.03);
+  box-shadow: 0 14px 32px rgba(37, 211, 102, 0.5), 0 6px 16px rgba(0, 0, 0, 0.5);
+  color: #fff !important;
+}
+
+.wa-icon-bubble {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.wa-text-group {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.wa-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.wa-subtitle {
+  font-size: 0.68rem;
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 500;
+}
+
+@media (max-width: 640px) {
+  .floating-whatsapp-btn {
+    bottom: 0.85rem;
+    right: 0.85rem;
+    padding: 0.55rem 0.85rem;
+    gap: 0.45rem;
+  }
+  .wa-title {
+    font-size: 0.76rem;
+  }
+  .wa-subtitle {
+    display: none;
+  }
+  .floating-support-btn {
+    bottom: 3.75rem !important;
+    right: 0.85rem !important;
+    padding: 0.45rem 0.75rem !important;
+    font-size: 0.76rem !important;
+  }
 }
 
 /* Metrics bar */
@@ -2832,6 +3079,26 @@ img, svg, video, canvas, audio, iframe, embed, object {
     padding: 0.55rem 0.95rem;
     font-size: 0.8rem;
     max-width: calc(100vw - 2rem);
+  }
+
+  .floating-whatsapp-btn {
+    bottom: 1rem;
+    right: 1rem;
+    padding: 0.55rem 0.95rem;
+    gap: 0.5rem;
+  }
+  .wa-title {
+    font-size: 0.78rem;
+  }
+  .wa-subtitle {
+    font-size: 0.64rem;
+  }
+  .buy-tab-btn {
+    padding: 0.55rem 0.5rem;
+    font-size: 0.76rem;
+  }
+  .tab-pill {
+    display: none;
   }
   
   .auth-card, .modal-card {
