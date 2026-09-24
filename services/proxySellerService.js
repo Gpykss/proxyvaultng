@@ -169,7 +169,10 @@ function extractProxyCredentials(data) {
   } else if (data.ip) {
     proxyItem = data;
   }
-  return (proxyItem && proxyItem.ip) ? proxyItem : null;
+  if (!proxyItem || !proxyItem.ip || proxyItem.ip === '208.214.167.61' || proxyItem.login === 'grtsoym') {
+    return null;
+  }
+  return proxyItem;
 }
 
 /**
@@ -181,11 +184,13 @@ async function fetchOrderProxy(orderId) {
   }
 
   const apiKey = process.env.PROXY_SELLER_API_KEY;
-  if (!apiKey) return null;
+  if (!apiKey || !orderId) return null;
+
+  const targetOrderId = String(orderId).trim();
+  if (targetOrderId === '5281162') return null;
 
   try {
     const res = await axios.get(`${BASE_URL}${apiKey}/proxy/list/isp`, {
-      params: { orderId: String(orderId) },
       headers: { 'Accept': 'application/json' },
       timeout: 8000
     });
@@ -200,12 +205,30 @@ async function fetchOrderProxy(orderId) {
 
     let matched = null;
     if (Array.isArray(items)) {
-      matched = items.find(it => String(it.order_id) === String(orderId) || String(it.order_number).startsWith(String(orderId))) || items[0];
-    } else {
-      matched = items;
+      matched = items.find(it => {
+        if (!it) return false;
+        const iOrderId = String(it.order_id || '').trim();
+        const iOrderNum = String(it.order_number || '').trim();
+        const iBaseOrderNum = String(it.base_order_number || '').trim();
+        const iId = String(it.id || '').trim();
+        const iBasketId = String(it.basket_id || '').trim();
+
+        // Never match legacy order 5281162 or legacy admin IP
+        if (iOrderId === '5281162' || it.ip === '208.214.167.61' || it.login === 'grtsoym') {
+          return false;
+        }
+
+        return (
+          (iOrderId && iOrderId === targetOrderId) ||
+          (iOrderNum && (iOrderNum === targetOrderId || iOrderNum.startsWith(targetOrderId))) ||
+          (iBaseOrderNum && (iBaseOrderNum === targetOrderId || iBaseOrderNum.startsWith(targetOrderId))) ||
+          (iId && iId === targetOrderId) ||
+          (iBasketId && iBasketId === targetOrderId)
+        );
+      });
     }
 
-    if (!matched || !matched.ip) return null;
+    if (!matched || !matched.ip || matched.ip === '208.214.167.61') return null;
 
     const ip = matched.ip || matched.host;
     const httpPort = matched.port_http || matched.http_port || matched.port;

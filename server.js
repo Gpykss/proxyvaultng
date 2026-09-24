@@ -1477,15 +1477,15 @@ async function syncProvisioningLeases(userId) {
   try {
     const query = {
       status: 'provisioning',
-      upstream_order_id: { $exists: true, $ne: null, $ne: '' }
+      upstream_order_id: { $exists: true, $ne: null, $nin: ['', '5281162'] }
     };
     if (userId) query.user_id = userId;
 
     const provisioningLeases = await ProxyLease.find(query).limit(10);
     for (const lease of provisioningLeases) {
-      if (!lease.upstream_order_id) continue;
+      if (!lease.upstream_order_id || String(lease.upstream_order_id) === '5281162') continue;
       const fetched = await proxyService.fetchOrderProxy(lease.upstream_order_id);
-      if (fetched && fetched.ip_address && fetched.ip_address !== 'Allocating...') {
+      if (fetched && fetched.ip_address && fetched.ip_address !== 'Allocating...' && fetched.ip_address !== '208.214.167.61') {
         lease.status = 'active';
         lease.ip_address = fetched.ip_address;
         lease.http_port = fetched.http_port;
@@ -1515,16 +1515,63 @@ app.get(['/api/proxy/leases', '/api/proxies', '/api/user/proxies'], requireAuth,
   res.set('Expires', '0');
 
   try {
-    // Purge only legacy test leases created before the system upgrade
-    await ProxyLease.deleteMany({
-      created_at: { $lt: new Date('2026-08-30T12:00:00Z') }
-    });
+    // Check if the user has a genuine paid proxy transaction
+    const hasPaidRentTx = await Transaction.findOne({
+      user_id: req.session.userId,
+      type: 'proxy_rent',
+      status: 'completed'
+    }).sort({ _id: -1 });
+
+    if (hasPaidRentTx) {
+      // Re-link any erroneously captured legacy order 5281162 or 208.214.167.61 lease to the genuine pending order 1832978025
+      await ProxyLease.updateMany(
+        {
+          user_id: req.session.userId,
+          $or: [
+            { order_id: '5281162' },
+            { upstream_order_id: '5281162' },
+            { ip_address: '208.214.167.61' },
+            { socks5_user: 'grtsoym' }
+          ]
+        },
+        {
+          $set: {
+            order_id: '1832978025',
+            upstream_order_id: '1832978025',
+            upstream_proxy_id: '',
+            ip_address: 'Allocating...',
+            protocol: 'socks5',
+            http_port: null,
+            socks5_port: 0,
+            socks5_user: 'Allocating...',
+            socks5_pass: 'Allocating...',
+            wireguard_conf: '',
+            status: 'provisioning'
+          }
+        }
+      );
+    } else {
+      // Purge any test or legacy leases for users without a verified completed payment
+      await ProxyLease.deleteMany({
+        user_id: req.session.userId,
+        $or: [
+          { order_id: '5281162' },
+          { upstream_order_id: '5281162' },
+          { ip_address: '208.214.167.61' },
+          { socks5_user: 'grtsoym' }
+        ]
+      });
+    }
 
     // Automatically poll and sync any pending/provisioning leases for this user
     await syncProvisioningLeases(req.session.userId);
 
     let leases = await ProxyLease.find({
       user_id: req.session.userId,
+      order_id: { $ne: '5281162' },
+      upstream_order_id: { $ne: '5281162' },
+      ip_address: { $nin: ['208.214.167.61', ''] },
+      socks5_user: { $ne: 'grtsoym' },
       status: { $in: ['active', 'provisioning'] }
     }).sort({ _id: -1 });
 
