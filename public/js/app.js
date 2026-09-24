@@ -79,6 +79,24 @@ document.addEventListener('DOMContentLoaded', () => {
   setupNavAndModals();
 });
 
+let currentProxyPricing = { price_ngn: 7500, price_kobo: 750000, price_formatted: '7,500', strike_formatted: '12,000' };
+
+async function loadProxyPricing() {
+  try {
+    const res = await fetch('/api/proxy/pricing');
+    if (!res.ok) return;
+    currentProxyPricing = await res.json();
+    const priceDisplay = document.getElementById('modal-proxy-price-display');
+    const strikeDisplay = document.getElementById('modal-proxy-strike-display');
+    const confirmBtn = document.getElementById('confirm-buy-proxy-btn');
+    if (priceDisplay) priceDisplay.textContent = `₦${currentProxyPricing.price_formatted}`;
+    if (strikeDisplay) strikeDisplay.textContent = `₦${currentProxyPricing.strike_formatted}`;
+    if (confirmBtn) confirmBtn.textContent = `Deploy Instant Proxy (₦${currentProxyPricing.price_formatted})`;
+  } catch (e) {
+    console.error('Failed to load proxy pricing:', e);
+  }
+}
+
 async function initDashboard() {
   const authed = await fetchUserProfile();
   if (authed) {
@@ -86,6 +104,7 @@ async function initDashboard() {
     loadActiveProxies();
     loadActiveSMS();
     loadTransactions();
+    loadProxyPricing();
 
     // Check payment redirect callback
     const urlParams = new URLSearchParams(window.location.search);
@@ -96,6 +115,36 @@ async function initDashboard() {
       showToast('Wallet funded successfully!', 'success');
       const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
       window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
+    }
+
+    // Check for landing page direct buy intent
+    const pendingBuyRaw = sessionStorage.getItem('pv_pending_buy');
+    if (pendingBuyRaw) {
+      try {
+        const pendingBuy = JSON.parse(pendingBuyRaw);
+        sessionStorage.removeItem('pv_pending_buy');
+        switchView('#proxies-view');
+        const countrySelect = document.getElementById('modal-proxy-country');
+        const ispSelect = document.getElementById('modal-proxy-isp');
+        if (countrySelect && pendingBuy.country) {
+          countrySelect.value = pendingBuy.country;
+          countrySelect.dispatchEvent(new Event('change'));
+        }
+        if (ispSelect && pendingBuy.isp) {
+          setTimeout(() => {
+            if (ispSelect) ispSelect.value = pendingBuy.isp;
+          }, 150);
+        }
+        const rentProxyModal = document.getElementById('rent-proxy-modal');
+        if (rentProxyModal) {
+          setTimeout(() => {
+            rentProxyModal.classList.add('active');
+            showToast(`Configured your dedicated ${pendingBuy.country || 'US'} ISP proxy. Ready to deploy!`, 'info');
+          }, 350);
+        }
+      } catch (e) {
+        console.error('Error handling pending buy intent:', e);
+      }
     }
 
     // Refresh wallet balance & orders periodically
@@ -1405,64 +1454,25 @@ function initModalProxyDropdowns() {
     countrySearch.addEventListener('input', (e) => renderDropdown(e.target.value));
   }
 
-  countrySelect.addEventListener('change', updateModalIspOptions);
-}
-
-function updateModalIspOptions() {
-  const countrySelect = document.getElementById('modal-proxy-country');
-  const ispSelect = document.getElementById('modal-proxy-isp');
-  const priceDisplay = document.getElementById('modal-proxy-price-display');
-  if (!countrySelect || !ispSelect || !proxyCatalogCountries) return;
-
-  const code = countrySelect.value;
-  const countryData = proxyCatalogCountries.find(c => c.country_code === code);
-
-  ispSelect.innerHTML = '';
-
-  if (countryData && countryData.providers && countryData.providers.length > 0) {
-    countryData.providers.forEach(p => {
-      const opt = document.createElement('option');
-      opt.value = p.name;
-      opt.textContent = `${p.name} (₦${(p.price_ngn || 15000).toLocaleString()}/mo)`;
-      opt.dataset.price = p.price_ngn || 15000;
-      ispSelect.appendChild(opt);
-    });
-  } else {
-    const opt = document.createElement('option');
-    opt.value = 'any';
-    opt.textContent = 'Any Broadband Residential ISP (₦15,000/mo)';
-    opt.dataset.price = 15000;
-    ispSelect.appendChild(opt);
-  }
-
-  const updatePrice = () => {
-    const selected = ispSelect.options[ispSelect.selectedIndex];
-    const price = selected && selected.dataset.price ? parseInt(selected.dataset.price) : 15000;
-    if (priceDisplay) priceDisplay.textContent = `₦${price.toLocaleString()}`;
-  };
-
-  ispSelect.removeEventListener('change', updatePrice);
-  ispSelect.addEventListener('change', updatePrice);
-  updatePrice();
 }
 
 async function handleProxyPurchase() {
   const countrySelect = document.getElementById('modal-proxy-country');
-  const ispSelect = document.getElementById('modal-proxy-isp');
   const buyBtn = document.getElementById('confirm-buy-proxy-btn');
 
   if (!countrySelect) return;
 
-  const country = countrySelect.value;
-  const selectedIspOpt = ispSelect ? ispSelect.options[ispSelect.selectedIndex] : null;
-  const isp = selectedIspOpt ? selectedIspOpt.value : 'any';
-  const costNgn = selectedIspOpt && selectedIspOpt.dataset.price ? parseInt(selectedIspOpt.dataset.price) : 15000;
-  const costKobo = costNgn * 100;
+  const country = countrySelect.value || 'US';
+  const isp = 'any';
+
+  // Retail price (Static ₦7,500 configured via PROXY_PRICE_NGN in .env)
+  const costNgn = currentProxyPricing ? currentProxyPricing.price_ngn : 7500;
+  const costKobo = currentProxyPricing ? currentProxyPricing.price_kobo : 750000;
   const originalBalance = currentUser ? currentUser.balance : 0;
 
   try {
     buyBtn.disabled = true;
-    buyBtn.innerHTML = '<span class="spinner"></span> Provisioning Static IP...';
+    buyBtn.innerHTML = '<span class="spinner"></span> Deploying Instant Proxy (< 5s)...';
 
     // Optimistic balance update
     if (currentUser) {
@@ -1487,7 +1497,7 @@ async function handleProxyPurchase() {
       return;
     }
 
-    showToast('Static residential proxy provisioned successfully!', 'success');
+    showToast('Dedicated static residential ISP proxy provisioned successfully!', 'success');
     document.getElementById('rent-proxy-modal').classList.remove('active');
     fetchUserProfile();
     loadActiveProxies();
@@ -1507,7 +1517,7 @@ async function handleProxyPurchase() {
     showToast('Network error leasing proxy.', 'error');
   } finally {
     buyBtn.disabled = false;
-    buyBtn.textContent = 'Rent Static IP';
+    buyBtn.textContent = `Deploy Instant Proxy (₦${costNgn.toLocaleString()})`;
   }
 }
 
@@ -1524,18 +1534,19 @@ function showProxySuccessModal(lease) {
   const connStrInput = document.getElementById('modal-success-conn-str');
 
   const ip = lease.ip_address || '';
-  const port = lease.socks5_port || '';
+  const socksPort = lease.socks5_port || 1080;
+  const httpPort = lease.http_port || socksPort;
   const user = lease.socks5_user || '';
   const pass = lease.socks5_pass || '';
-  const country = lease.country || 'GB';
-  const carrier = lease.carrier || 'Broadband Residential';
-  const connStr = `http://${user}:${pass}@${ip}:${port}`;
+  const country = (lease.country || 'US').toUpperCase();
+  const carrier = lease.isp_carrier || lease.carrier || 'Verizon Residential (ISP)';
+  const connStr = `socks5://${user}:${pass}@${ip}:${socksPort}`;
 
   if (ipEl) ipEl.textContent = ip;
-  if (portEl) portEl.textContent = port;
+  if (portEl) portEl.textContent = `SOCKS5: ${socksPort} | HTTP: ${httpPort}`;
   if (userEl) userEl.textContent = user;
   if (passEl) passEl.textContent = pass;
-  if (metaEl) metaEl.textContent = `${country.toUpperCase()} • ${carrier}`;
+  if (metaEl) metaEl.textContent = `${country} • ${carrier}`;
   if (connStrInput) connStrInput.value = connStr;
 
   // Bind 1-click copies
@@ -1549,10 +1560,10 @@ function showProxySuccessModal(lease) {
   };
 
   bindModalCopy('copy-modal-success-ip', ip, 'IP address copied!');
-  bindModalCopy('copy-modal-success-port', String(port), 'Port copied!');
+  bindModalCopy('copy-modal-success-port', String(socksPort), 'SOCKS5 port copied!');
   bindModalCopy('copy-modal-success-user', user, 'Username copied!');
   bindModalCopy('copy-modal-success-pass', pass, 'Password copied!');
-  bindModalCopy('copy-modal-success-conn-btn', connStr, 'Connection string copied!');
+  bindModalCopy('copy-modal-success-conn-btn', connStr, 'SOCKS5 connection string copied!');
 
   modal.classList.add('active');
 
@@ -1583,7 +1594,7 @@ async function loadActiveProxies() {
 
     container.innerHTML = '';
     data.leases.forEach(lease => {
-      const card = createCyberYozhProxyCard(lease);
+      const card = createProxySellerCard(lease);
       container.appendChild(card);
     });
   } catch (err) {
@@ -1591,97 +1602,135 @@ async function loadActiveProxies() {
   }
 }
 
-// Build exact CyberYozh proxy card
-function createCyberYozhProxyCard(lease) {
+// Build Overhauled Proxy-Seller Active Proxy Card per PRD Specifications
+function createProxySellerCard(lease) {
   const card = document.createElement('div');
   card.className = 'cy-proxy-card';
 
   const flagMap = { US: '🇺🇸', GB: '🇬🇧', UK: '🇬🇧', DE: '🇩🇪', CA: '🇨🇦' };
-  const flag = flagMap[lease.country.toUpperCase()] || '🌐';
+  const countryCode = (lease.country || 'US').toUpperCase();
+  const flag = flagMap[countryCode] || '🌐';
 
   // Expiry calculation (30d XX:XX:XX)
   const expiresAt = new Date(lease.expires_at).getTime();
+
+  const carrier = lease.isp_carrier || lease.carrier || 'Verizon Residential (ISP)';
+  const fraudScore = lease.fraud_score !== undefined ? lease.fraud_score : 0;
+  const socks5Port = lease.socks5_port || 1080;
+  const httpPort = lease.http_port || socks5Port;
+
+  // Replacement Status Button per PRD Section 5.2
+  const canReplace = Boolean(lease.can_replace);
+  const remainingHours = lease.replace_remaining_hours || 24;
+  let replaceBtnHtml = '';
+  if (lease.replacement_count >= 1) {
+    replaceBtnHtml = `<button class="btn-card-action" disabled title="Max 1 automated replacement allowed">✓ Subnet Replaced (Max 1)</button>`;
+  } else if (canReplace) {
+    replaceBtnHtml = `<button class="btn-card-action btn-card-replace" id="replace-btn-${lease.id}" title="Request automated IP replacement within 24 hours of purchase">🔄 Request Replacement (${remainingHours}h left)</button>`;
+  } else {
+    replaceBtnHtml = `<button class="btn-card-action" disabled title="Replacement window closed (24 hours after purchase)">⏱️ 24h Window Expired</button>`;
+  }
 
   card.innerHTML = `
     <!-- Top Header Bar -->
     <div class="cy-proxy-header">
       <div class="cy-proxy-ip-group">
         <span class="cy-proxy-flag">${flag}</span>
-        <span id="ip-text-${lease.id}">${lease.ip_address}</span>
-        <button class="copy-icon-btn" id="copy-ip-${lease.id}" title="Copy IP Address">📋</button>
+        <span id="ip-display-${lease.id}">${lease.ip_address}:${socks5Port}</span>
+        <button class="copy-icon-btn" id="copy-endpoint-${lease.id}" title="Copy Host:Port">📋</button>
       </div>
 
       <div class="cy-proxy-meta-badges">
+        <div class="prd-fraud-badge">
+          <span>🛡️</span>
+          <span>${fraudScore}% Fraud Score</span>
+        </div>
+        <div class="prd-carrier-badge">
+          <span>📶</span>
+          <span>${carrier}</span>
+        </div>
         <div class="cy-expiry-badge">
           <span>🕒</span>
           <span id="expiry-text-${lease.id}">Expires in: Loading...</span>
         </div>
-        <div class="cy-type-badge">
-          <span>✳️</span>
-          <span>Type: Resident. Static</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Credentials Row -->
-    <div class="cy-proxy-body">
-      <div class="cy-cred-row">
-        <span class="cy-cred-label">Login:</span>
-        <span class="cy-cred-val" id="login-val-${lease.id}">${lease.socks5_user}</span>
-        <button class="copy-icon-btn" id="copy-login-${lease.id}" title="Copy Login">📋</button>
-      </div>
-
-      <div class="cy-cred-row">
-        <span class="cy-cred-label">Password:</span>
-        <span class="cy-cred-val" id="pass-val-${lease.id}">${lease.socks5_pass}</span>
-        <button class="copy-icon-btn" id="copy-pass-${lease.id}" title="Copy Password">📋</button>
       </div>
     </div>
 
     <!-- Protocol Radio Switcher -->
-    <div class="cy-protocol-switcher">
-      <label class="cy-radio-label active" id="label-http-${lease.id}">
-        <input type="radio" name="protocol-${lease.id}" value="HTTP" checked>
-        <span>HTTP</span>
+    <div class="cy-protocol-switcher" style="margin-bottom: 0.65rem;">
+      <label class="cy-radio-label active" id="label-socks-${lease.id}">
+        <input type="radio" name="protocol-${lease.id}" value="SOCKS5" checked>
+        <span>SOCKS5 (Port: ${socks5Port})</span>
       </label>
-      <label class="cy-radio-label" id="label-socks-${lease.id}">
-        <input type="radio" name="protocol-${lease.id}" value="SOCKS5">
-        <span>SOCKS5</span>
+      <label class="cy-radio-label" id="label-http-${lease.id}">
+        <input type="radio" name="protocol-${lease.id}" value="HTTP">
+        <span>HTTP (Port: ${httpPort})</span>
       </label>
+    </div>
+
+    <!-- Credentials Row with Masked Password Toggle -->
+    <div class="cy-proxy-body">
+      <div class="cy-cred-row">
+        <span class="cy-cred-label">Login:</span>
+        <span class="cy-cred-val" id="login-val-${lease.id}">${lease.socks5_user}</span>
+        <button class="copy-icon-btn" id="copy-login-${lease.id}" title="Copy Username">📋</button>
+      </div>
+
+      <div class="cy-cred-row">
+        <span class="cy-cred-label">Password:</span>
+        <span class="cy-cred-val" id="pass-val-${lease.id}">••••••••</span>
+        <button class="password-toggle-btn" id="toggle-pass-${lease.id}" title="Show / Hide Password">👁️</button>
+        <button class="copy-icon-btn" id="copy-pass-${lease.id}" title="Copy Password">📋</button>
+      </div>
     </div>
 
     <!-- Formatted Connection String Box -->
     <div class="cy-connection-box">
-      <span class="cy-protocol-tag" id="tag-protocol-${lease.id}">HTTP</span>
-      <span class="cy-conn-string-text" id="conn-str-${lease.id}">://${lease.ip_address}:${lease.socks5_port}</span>
+      <span class="cy-protocol-tag" id="tag-protocol-${lease.id}">SOCKS5</span>
+      <span class="cy-conn-string-text" id="conn-str-${lease.id}">socks5://${lease.socks5_user}:${lease.socks5_pass}@${lease.ip_address}:${socks5Port}</span>
       <button class="copy-icon-btn" id="copy-conn-${lease.id}" title="Copy Connection String">📋</button>
     </div>
 
-    <!-- Concurrent Device Limit Notice -->
-    <div class="cy-security-limit-notice">
-      <span>🛡️</span>
-      <span><strong>Limit:</strong> Max 3 concurrent devices per IP to maintain a 0% fraud score.</span>
+    <!-- Network Reputation & Diagnostics Links -->
+    <div class="prd-diag-group">
+      <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600;">Subnet Verification:</span>
+      <a href="https://whoer.net/" target="_blank" rel="noopener noreferrer" class="prd-diag-link" title="Run full IP anonymity, DNS leak, and blacklist check on Whoer.net">
+        🛡️ Whoer.net IP &amp; Privacy Check
+      </a>
+    </div>
+
+    <!-- Action Bar: Config Download & Subnet Replacement -->
+    <div class="prd-actions-row">
+      <a href="/api/proxy/download/${lease.id}" class="btn-card-action" download title="Download .txt credentials & connection strings">
+        📥 Download .txt Configuration
+      </a>
+      ${replaceBtnHtml}
     </div>
   `;
 
-  // Protocol Radio switch handling
-  let activeProtocol = 'HTTP';
+  // Protocol Radio switch handling (SOCKS5 vs HTTP)
+  let activeProtocol = 'SOCKS5';
 
   const updateConnDisplay = () => {
     const tag = card.querySelector(`#tag-protocol-${lease.id}`);
     const connText = card.querySelector(`#conn-str-${lease.id}`);
+    const ipDisplay = card.querySelector(`#ip-display-${lease.id}`);
     const labelHttp = card.querySelector(`#label-http-${lease.id}`);
     const labelSocks = card.querySelector(`#label-socks-${lease.id}`);
 
+    const currentPort = activeProtocol === 'HTTP' ? httpPort : socks5Port;
+    const protoLower = activeProtocol.toLowerCase();
+
     if (tag) tag.textContent = activeProtocol;
-    if (connText) connText.textContent = `://${lease.ip_address}:${lease.socks5_port}`;
+    if (ipDisplay) ipDisplay.textContent = `${lease.ip_address}:${currentPort}`;
+    if (connText) connText.textContent = `${protoLower}://${lease.socks5_user}:${lease.socks5_pass}@${lease.ip_address}:${currentPort}`;
 
     if (activeProtocol === 'HTTP') {
-      labelHttp.classList.add('active');
-      labelSocks.classList.remove('active');
+      if (labelHttp) labelHttp.classList.add('active');
+      if (labelSocks) labelSocks.classList.remove('active');
     } else {
-      labelSocks.classList.add('active');
-      labelHttp.classList.remove('active');
+      if (labelSocks) labelSocks.classList.add('active');
+      if (labelHttp) labelHttp.classList.remove('active');
     }
   };
 
@@ -1692,11 +1741,24 @@ function createCyberYozhProxyCard(lease) {
     });
   });
 
+  // Masked Password Reveal Toggle
+  let isPassRevealed = false;
+  const passVal = card.querySelector(`#pass-val-${lease.id}`);
+  const passToggleBtn = card.querySelector(`#toggle-pass-${lease.id}`);
+  if (passToggleBtn && passVal) {
+    passToggleBtn.addEventListener('click', () => {
+      isPassRevealed = !isPassRevealed;
+      passVal.textContent = isPassRevealed ? lease.socks5_pass : '••••••••';
+      passToggleBtn.textContent = isPassRevealed ? '🙈' : '👁️';
+    });
+  }
+
   // 1-Click Copy Listeners
-  const bindCopy = (btnId, textToCopy, toastMsg) => {
+  const bindCopy = (btnId, textGetter, toastMsg) => {
     const btn = card.querySelector(btnId);
     if (btn) {
       btn.addEventListener('click', () => {
+        const textToCopy = typeof textGetter === 'function' ? textGetter() : textGetter;
         navigator.clipboard.writeText(textToCopy).then(() => {
           showToast(toastMsg, 'success');
         });
@@ -1704,18 +1766,52 @@ function createCyberYozhProxyCard(lease) {
     }
   };
 
-  bindCopy(`#copy-ip-${lease.id}`, lease.ip_address, 'IP address copied!');
-  bindCopy(`#copy-login-${lease.id}`, lease.socks5_user, 'Login username copied!');
+  bindCopy(`#copy-endpoint-${lease.id}`, () => {
+    const currentPort = activeProtocol === 'HTTP' ? httpPort : socks5Port;
+    return `${lease.ip_address}:${currentPort}`;
+  }, 'Host:Port copied!');
+
+  bindCopy(`#copy-login-${lease.id}`, lease.socks5_user, 'Username copied!');
   bindCopy(`#copy-pass-${lease.id}`, lease.socks5_pass, 'Password copied!');
 
-  const copyConnBtn = card.querySelector(`#copy-conn-${lease.id}`);
-  if (copyConnBtn) {
-    copyConnBtn.addEventListener('click', () => {
-      // Copies standard formatted connection string: protocol://user:pass@ip:port
-      const fullConnString = `${activeProtocol.toLowerCase()}://${lease.socks5_user}:${lease.socks5_pass}@${lease.ip_address}:${lease.socks5_port}`;
-      navigator.clipboard.writeText(fullConnString).then(() => {
-        showToast(`${activeProtocol} connection string copied!`, 'success');
-      });
+  bindCopy(`#copy-conn-${lease.id}`, () => {
+    const currentPort = activeProtocol === 'HTTP' ? httpPort : socks5Port;
+    return `${activeProtocol.toLowerCase()}://${lease.socks5_user}:${lease.socks5_pass}@${lease.ip_address}:${currentPort}`;
+  }, `${activeProtocol} connection string copied!`);
+
+  // Active Subnet Replacement Handler
+  const replaceBtn = card.querySelector(`#replace-btn-${lease.id}`);
+  if (replaceBtn) {
+    replaceBtn.addEventListener('click', async () => {
+      const confirmed = confirm(
+        'Request an automated IP replacement for this proxy?\n\n' +
+        '• Your proxy IP will be swapped with a fresh dedicated residential subnet.\n' +
+        '• Note: Limited to 1 replacement per purchased proxy within 24 hours.'
+      );
+      if (!confirmed) return;
+
+      try {
+        replaceBtn.disabled = true;
+        replaceBtn.innerHTML = '<span class="spinner"></span> Replacing Subnet...';
+
+        const res = await fetch(`/api/proxy/replace/${lease.id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reason: 'NOT_WORK' })
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || 'Failed to replace proxy');
+        }
+
+        showToast(data.message || 'Subnet replaced successfully!', 'success');
+        await loadActiveProxies();
+      } catch (err) {
+        showToast(err.message, 'error');
+        replaceBtn.disabled = false;
+        replaceBtn.innerHTML = `🔄 Request Replacement (${remainingHours}h left)`;
+      }
     });
   }
 
@@ -1739,6 +1835,9 @@ function createCyberYozhProxyCard(lease) {
 
   return card;
 }
+
+// Backwards compatibility alias
+const createCyberYozhProxyCard = createProxySellerCard;
 
 // Export active proxies as .txt file
 async function exportProxiesTxt() {

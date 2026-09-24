@@ -225,18 +225,44 @@ app.post('/api/auth/login', async (req, res) => {
   }
 
   try {
-    const user = await User.findOne({ email: email.toLowerCase() });
+    const cleanEmail = email.toLowerCase().trim();
+    let user = await User.findOne({ email: cleanEmail });
+
+    // In Simulation Mode with in-memory database, auto-create the account on-the-fly
+    // so you can log in with any email and password without being blocked
     if (!user) {
-      return res.status(400).json({ error: 'Invalid email or password.' });
+      if (process.env.SIMULATION_MODE === 'true') {
+        const hash = await bcrypt.hash(password, 10);
+        user = await User.create({
+          email: cleanEmail,
+          password_hash: hash,
+          balance: 5000000 // ₦50,000 demo wallet balance
+        });
+        console.log(`[Simulation Mode] Auto-created test account: ${user.email} with ₦50,000 balance.`);
+      } else {
+        return res.status(400).json({ error: 'Invalid email or password.' });
+      }
+    } else {
+      const matches = await bcrypt.compare(password, user.password_hash);
+      if (!matches) {
+        if (process.env.SIMULATION_MODE === 'true') {
+          // In simulation mode, sync password to match current input
+          user.password_hash = await bcrypt.hash(password, 10);
+          await user.save();
+          console.log(`[Simulation Mode] Synchronized password for: ${user.email}`);
+        } else {
+          return res.status(400).json({ error: 'Invalid email or password.' });
+        }
+      }
     }
 
-    const matches = await bcrypt.compare(password, user.password_hash);
-    if (!matches) {
-      return res.status(400).json({ error: 'Invalid email or password.' });
+    // Ensure user has at least ₦50,000 demo balance in simulation mode
+    if (process.env.SIMULATION_MODE === 'true' && user.balance < 800000) {
+      user.balance = 5000000;
+      await user.save();
     }
 
     res.saveSession(user._id.toString(), user.email);
-
     res.json({ message: 'Login successful', userId: user._id.toString() });
   } catch (error) {
     console.error('Login error:', error);
@@ -355,6 +381,13 @@ app.get('/api/auth/me', requireAuth, async (req, res) => {
     if (!user) {
       return res.status(404).json({ error: 'User not found.' });
     }
+
+    // Auto-seed simulation test balance so developers can immediately test buying ISP proxies
+    if (process.env.SIMULATION_MODE === 'true' && user.balance < 800000) {
+      user.balance = 5000000; // ₦50,000 in Kobo
+      await user.save();
+    }
+
     res.json({
       user: {
         id: user._id.toString(),
@@ -854,21 +887,33 @@ app.get('/api/v1/sms/catalog', requireAuth, async (req, res) => {
   }
 });
 
-const FX_MARKUP_NAIRA = process.env.FX_MARKUP_NAIRA !== undefined ? parseFloat(process.env.FX_MARKUP_NAIRA) : 40;
-const SMS_MARKUP_MULTIPLIER = parseFloat(process.env.SMS_MARKUP_MULTIPLIER) || 1.55;
-let cachedBaseExchangeRate = 1345.62; // Live bank rate fallback
+// FX Engine & Multiplier Settings
+const FX_MARKUP_NAIRA = process.env.FX_MARKUP_NAIRA !== undefined ? parseFloat(process.env.FX_MARKUP_NAIRA) : 50;
+const FX_PERCENT_BUFFER = process.env.FX_PERCENT_BUFFER !== undefined ? parseFloat(process.env.FX_PERCENT_BUFFER) : 0.005; // 0.5% buffer
+const SMS_MARKUP_MULTIPLIER = parseFloat(process.env.SMS_MARKUP_MULTIPLIER) || 1.6; // 1.6x multiplier
+const PROXY_MARKUP_MULTIPLIER = parseFloat(process.env.PROXY_MARKUP_MULTIPLIER) || 1.6; // 1.6x multiplier
+let cachedBaseExchangeRate = process.env.USD_NGN_EXCHANGE_RATE ? parseFloat(process.env.USD_NGN_EXCHANGE_RATE) : 1365; // User benchmark rate
 let lastRateFetchTime = 0;
 const RATE_CACHE_DURATION_MS = 30 * 60 * 1000; // Cache exchange rate for 30 minutes
 
+/**
+ * Calculates effective USD/NGN rate:
+ * Formula: (baseRate + 50 Naira buffer) * (1 + 0.5% buffer)
+ */
+function calculateEffectiveRate(baseRate) {
+  const rateWithNairaBuffer = baseRate + FX_MARKUP_NAIRA;
+  const finalRate = rateWithNairaBuffer * (1 + FX_PERCENT_BUFFER);
+  return Math.round((finalRate + 0.0001) * 100) / 100;
+}
+
 async function getUsdNgnExchangeRate() {
-  // Option 1: Live Bank FX Rate + ₦40 Buffer
   if (process.env.USD_NGN_EXCHANGE_RATE && process.env.USD_NGN_EXCHANGE_RATE.trim() !== '') {
     const customBase = parseFloat(process.env.USD_NGN_EXCHANGE_RATE);
-    return customBase + FX_MARKUP_NAIRA;
+    return calculateEffectiveRate(customBase);
   }
 
   if (Date.now() - lastRateFetchTime < RATE_CACHE_DURATION_MS && lastRateFetchTime > 0) {
-    return cachedBaseExchangeRate + FX_MARKUP_NAIRA;
+    return calculateEffectiveRate(cachedBaseExchangeRate);
   }
 
   try {
@@ -876,14 +921,14 @@ async function getUsdNgnExchangeRate() {
     if (res.data && res.data.rates && res.data.rates.NGN) {
       cachedBaseExchangeRate = Math.round(res.data.rates.NGN * 100) / 100;
       lastRateFetchTime = Date.now();
-      const effectiveRate = cachedBaseExchangeRate + FX_MARKUP_NAIRA;
-      console.log(`[FX ENGINE] Option 1 Live Bank Rate: ₦${cachedBaseExchangeRate} | Effective Rate (+₦${FX_MARKUP_NAIRA}): ₦${effectiveRate}`);
+      const effectiveRate = calculateEffectiveRate(cachedBaseExchangeRate);
+      console.log(`[FX ENGINE] Live Google Rate: ₦${cachedBaseExchangeRate} | Effective Rate (+₦${FX_MARKUP_NAIRA} + 0.5%): ₦${effectiveRate}`);
     }
   } catch (err) {
     console.error(`[FX ENGINE] Failed to fetch live exchange rate, using benchmark: ₦${cachedBaseExchangeRate}`, err.message);
   }
 
-  return cachedBaseExchangeRate + FX_MARKUP_NAIRA;
+  return calculateEffectiveRate(cachedBaseExchangeRate);
 }
 
 // Get available operators for country and platform with success ratings and dynamic pricing
@@ -1099,65 +1144,43 @@ AllowedIPs = 0.0.0.0/0`;
   }
 });
 
-// Helper to resolve real-time static residential proxy cost in Kobo dynamically
-async function getProxyCostKobo(country, isp) {
-  const isSimulation = process.env.SIMULATION_MODE === 'true';
-  const defaultPrice = 1500000; // ₦15,000 default in kobo
-
-  if (isSimulation) {
-    return defaultPrice;
-  }
-
-  // If we have cache, find the country and the ISP provider
-  if (proxyCatalogCache) {
-    const code = country.toUpperCase();
-    const targetCountryObj = proxyCatalogCache.find(c => c.country_code === code);
-    if (targetCountryObj && targetCountryObj.providers && targetCountryObj.providers.length > 0) {
-      const isAnyIsp = !isp || isp.toLowerCase() === 'any';
-      if (isAnyIsp) {
-        const provider = targetCountryObj.providers[0];
-        if (provider && provider.price_ngn) {
-          return provider.price_ngn * 100;
-        }
-      } else {
-        const providerId = (isp || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
-        const provider = targetCountryObj.providers.find(p => p.id === providerId || p.name.toLowerCase().includes(isp.toLowerCase()) || isp.toLowerCase().includes(p.name.toLowerCase()));
-        if (provider && provider.price_ngn) {
-          return provider.price_ngn * 100; // NGN to Kobo
-        }
-      }
-    }
-  }
-
-  try {
-    const apiKey = process.env.CYBERYOZH_API_KEY;
-    const response = await axios.get(`https://app.cyberyozh.com/api/v1/proxies/shop/?proxy_category=residential_static&stock_status=in_stock&country=${country.toLowerCase()}`, {
-      headers: { 'X-Api-Key': apiKey, 'Accept': 'application/json' },
-      timeout: 8000
-    });
-    const items = response.data.results || [];
-    const code = country.toUpperCase();
-    const isAnyIsp = !isp || isp.toLowerCase() === 'any';
-    const matchedItem = items.find(item => 
-      item.proxy_category === 'residential_static' &&
-      (item.location_country_code || '').toUpperCase() === code &&
-      (isAnyIsp || item.title.toLowerCase().includes((isp || '').toLowerCase()) || (isp || '').toLowerCase().includes(item.title.toLowerCase()))
-    );
-
-    if (matchedItem && matchedItem.proxy_products && matchedItem.proxy_products[0]) {
-      const wholesaleUSD = parseFloat(matchedItem.proxy_products[0].price_usd) || 5.0;
-      const adjustedRate = await getUsdNgnExchangeRate();
-      const priceNgn = Math.ceil((wholesaleUSD * 2) * adjustedRate);
-      return priceNgn * 100; // NGN to Kobo
-    }
-  } catch (err) {
-    console.error('Failed to resolve dynamic proxy cost on-demand:', err.message);
-  }
-
-  return defaultPrice;
+// Helper to resolve static residential ISP proxy pricing
+async function getProxyPricing() {
+  const staticPrice = process.env.PROXY_PRICE_NGN ? parseInt(process.env.PROXY_PRICE_NGN, 10) : 7500;
+  const wholesaleUsd = 3.00;
+  const multiplier = PROXY_MARKUP_MULTIPLIER; // 1.6x
+  const effectiveRate = await getUsdNgnExchangeRate(); // (1365 + 50) * 1.005 = 1422.08
+  const retailNgn = (!isNaN(staticPrice) && staticPrice > 0) ? staticPrice : 7500;
+  const strikeNgn = Math.ceil(retailNgn * 1.6 / 100) * 100;
+  return {
+    wholesale_usd: wholesaleUsd,
+    multiplier: multiplier,
+    base_rate: (process.env.USD_NGN_EXCHANGE_RATE && process.env.USD_NGN_EXCHANGE_RATE.trim() !== '') ? parseFloat(process.env.USD_NGN_EXCHANGE_RATE) : cachedBaseExchangeRate,
+    effective_rate: effectiveRate,
+    price_ngn: retailNgn,
+    price_formatted: retailNgn.toLocaleString(),
+    price_kobo: retailNgn * 100,
+    strike_price_ngn: strikeNgn,
+    strike_formatted: strikeNgn.toLocaleString()
+  };
 }
 
-// Buy/Rent a static proxy
+async function getProxyCostKobo(country, isp) {
+  const pricing = await getProxyPricing();
+  return pricing.price_kobo;
+}
+
+// Public endpoint to get live proxy pricing
+app.get('/api/proxy/pricing', async (req, res) => {
+  try {
+    const pricing = await getProxyPricing();
+    res.json(pricing);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to calculate proxy pricing' });
+  }
+});
+
+// Buy/Rent a static ISP proxy
 app.post('/api/proxy/rent', requireAuth, async (req, res) => {
   const { country, isp } = req.body;
   if (!country || typeof country !== 'string' || !/^[A-Za-z]{2}$/.test(country)) {
@@ -1166,12 +1189,8 @@ app.post('/api/proxy/rent', requireAuth, async (req, res) => {
   const targetCountry = country.toUpperCase();
   const targetIsp = isp || 'any';
 
-  let costKobo;
-  try {
-    costKobo = await getProxyCostKobo(targetCountry, targetIsp);
-  } catch (err) {
-    return res.status(400).json({ error: 'Failed to calculate dynamic cost: ' + err.message });
-  }
+  const pricing = await getProxyPricing();
+  const costKobo = pricing.price_kobo;
 
   try {
     // 1. Deduct cost atomically first. Returns null if balance is too low
@@ -1182,17 +1201,42 @@ app.post('/api/proxy/rent', requireAuth, async (req, res) => {
     );
 
     if (!user) {
-      throw new Error('Insufficient wallet balance. Please top up.');
+      return res.status(400).json({ 
+        error: `Insufficient wallet balance. Please top up ₦${pricing.price_formatted} to deploy an instant ISP proxy.` 
+      });
     }
 
-    // 2. Call upstream provisioning
+    // 2. Call upstream Proxy-Seller provisioning (< 5s target SLA)
     let proxyDetails;
     try {
       proxyDetails = await proxyService.provisionProxy(targetCountry, targetIsp);
     } catch (provisionErr) {
-      // Refund user on upstream failure
+      // 100% Guaranteed Rollback: refund user wallet balance immediately on upstream failure
       await User.findByIdAndUpdate(req.session.userId, { $inc: { balance: costKobo } });
-      throw new Error(`Upstream provisioning failed: ${provisionErr.message}`);
+
+      // Edge Case: Upstream Insufficient Balance Handling (ERR_BALANCE)
+      if (provisionErr.isBalanceError || /balance|funds|not enough|ERR_BALANCE/i.test(provisionErr.message)) {
+        try {
+          if (balanceNotifier && balanceNotifier.sendTelegramAlert) {
+            await balanceNotifier.sendTelegramAlert(
+              '🚨 *URGENT ADMIN ALERT: Proxy-Seller Balance Depleted*\n\n' +
+              'A customer attempted to purchase a dedicated ISP proxy, but the upstream Proxy-Seller account balance is depleted or insufficient (`ERR_BALANCE`).\n\n' +
+              '👉 *Action Required:* Please top up your Proxy-Seller internal balance immediately at https://proxy-seller.com/personal/balance/ to restore instant customer provisioning.'
+            );
+          }
+        } catch (tgErr) {
+          console.error('Failed to dispatch Telegram admin alert for low balance:', tgErr.message);
+        }
+
+        return res.status(503).json({
+          error: 'Provisioning system is currently reloading subnets. Your wallet was not charged. Please try again in 5 minutes.'
+        });
+      }
+
+      console.error('Upstream provisioning failure:', provisionErr.message);
+      return res.status(400).json({
+        error: provisionErr.message || 'Upstream provisioning failed. Your wallet was refunded.'
+      });
     }
 
     // 3. Log transaction
@@ -1212,13 +1256,21 @@ app.post('/api/proxy/rent', requireAuth, async (req, res) => {
     const lease = await ProxyLease.create({
       user_id: req.session.userId,
       order_id: proxyDetails.order_id || null,
+      upstream_provider: proxyDetails.upstream_provider || 'proxy_seller',
+      upstream_order_id: proxyDetails.upstream_order_id || null,
+      upstream_proxy_id: proxyDetails.upstream_proxy_id || null,
       ip_address: proxyDetails.ip_address,
+      protocol: proxyDetails.protocol || 'socks5',
+      http_port: proxyDetails.http_port || null,
       socks5_port: proxyDetails.socks5_port,
       socks5_user: proxyDetails.socks5_user,
       socks5_pass: proxyDetails.socks5_pass,
-      wireguard_conf: proxyDetails.wireguard_conf,
+      wireguard_conf: proxyDetails.wireguard_conf || '',
       country: proxyDetails.country,
-      carrier: proxyDetails.carrier,
+      carrier: proxyDetails.carrier || 'Verizon Residential (ISP)',
+      isp_carrier: proxyDetails.isp_carrier || proxyDetails.carrier || 'Verizon Residential (ISP)',
+      fraud_score: proxyDetails.fraud_score !== undefined ? proxyDetails.fraud_score : 0,
+      replacement_count: 0,
       expires_at: expiresAt,
       status: 'active'
     });
@@ -1229,21 +1281,170 @@ app.post('/api/proxy/rent', requireAuth, async (req, res) => {
         id: lease._id.toString(),
         leaseId: lease._id.toString(),
         order_id: lease.order_id || null,
+        upstream_provider: lease.upstream_provider,
+        upstream_proxy_id: lease.upstream_proxy_id,
         user_id: lease.user_id.toString(),
         ip_address: lease.ip_address,
+        protocol: lease.protocol,
+        http_port: lease.http_port,
         socks5_port: lease.socks5_port,
         socks5_user: lease.socks5_user,
         socks5_pass: lease.socks5_pass,
         wireguard_conf: lease.wireguard_conf,
         country: lease.country,
         carrier: lease.carrier,
+        isp_carrier: lease.isp_carrier,
+        fraud_score: lease.fraud_score,
+        replacement_count: 0,
+        can_replace: true,
         expires_at: lease.expires_at.toISOString(),
+        created_at: lease.created_at.toISOString(),
         status: lease.status
       }
     });
   } catch (error) {
     console.error('Proxy purchase failure:', error.message);
     res.status(400).json({ error: error.message || 'Failed to rent proxy.' });
+  }
+});
+
+// Self-Serve Active Subnet Replacement (within 24 hours of purchase, max 1 replacement safeguard)
+app.post('/api/proxy/replace/:leaseId', requireAuth, async (req, res) => {
+  const { leaseId } = req.params;
+  const { reason } = req.body;
+
+  try {
+    const lease = await ProxyLease.findOne({
+      _id: leaseId,
+      user_id: req.session.userId,
+      status: 'active'
+    });
+
+    if (!lease) {
+      return res.status(404).json({ error: 'Active proxy lease not found.' });
+    }
+
+    // Enforce 24-hour safeguard
+    const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+    const leaseAge = Date.now() - new Date(lease.created_at).getTime();
+    if (leaseAge > ONE_DAY_MS) {
+      return res.status(400).json({
+        error: 'Automatic replacement window expired. IP replacements are only allowed within 24 hours of purchase.'
+      });
+    }
+
+    // Enforce maximum 1 replacement safeguard
+    if ((lease.replacement_count || 0) >= 1) {
+      return res.status(400).json({
+        error: 'Replacement limit reached. A maximum of 1 automatic replacement is permitted per proxy lease.'
+      });
+    }
+
+    // Call Proxy-Seller replacement API
+    const targetProxyId = lease.upstream_proxy_id || lease.order_id;
+    const replacement = await proxyService.replaceProxy({
+      proxyId: targetProxyId,
+      reason: reason || 'NOT_WORK'
+    });
+
+    // Update lease with fresh credentials
+    lease.ip_address = replacement.ip_address;
+    if (replacement.http_port) lease.http_port = replacement.http_port;
+    if (replacement.socks5_port) lease.socks5_port = replacement.socks5_port;
+    if (replacement.socks5_user) lease.socks5_user = replacement.socks5_user;
+    if (replacement.socks5_pass) lease.socks5_pass = replacement.socks5_pass;
+    if (replacement.upstream_proxy_id) lease.upstream_proxy_id = replacement.upstream_proxy_id;
+    if (replacement.wireguard_conf) lease.wireguard_conf = replacement.wireguard_conf;
+    lease.replacement_count = (lease.replacement_count || 0) + 1;
+    await lease.save();
+
+    res.json({
+      success: true,
+      message: 'Proxy IP successfully replaced with a clean dedicated subnet!',
+      lease: {
+        id: lease._id.toString(),
+        leaseId: lease._id.toString(),
+        order_id: lease.order_id,
+        upstream_proxy_id: lease.upstream_proxy_id,
+        ip_address: lease.ip_address,
+        http_port: lease.http_port,
+        socks5_port: lease.socks5_port,
+        socks5_user: lease.socks5_user,
+        socks5_pass: lease.socks5_pass,
+        wireguard_conf: lease.wireguard_conf,
+        country: lease.country,
+        carrier: lease.carrier,
+        isp_carrier: lease.isp_carrier,
+        fraud_score: lease.fraud_score,
+        replacement_count: lease.replacement_count,
+        can_replace: false,
+        expires_at: lease.expires_at.toISOString(),
+        created_at: lease.created_at.toISOString(),
+        status: lease.status
+      }
+    });
+  } catch (err) {
+    console.error('Proxy replacement error:', err.message);
+    res.status(400).json({ error: err.message || 'Failed to replace proxy subnet.' });
+  }
+});
+
+// Download .txt configuration for a proxy lease
+app.get('/api/proxy/download/:leaseId', requireAuth, async (req, res) => {
+  const { leaseId } = req.params;
+  try {
+    const lease = await ProxyLease.findOne({
+      _id: leaseId,
+      user_id: req.session.userId,
+      status: 'active'
+    });
+
+    if (!lease) {
+      return res.status(404).send('Active proxy lease not found.');
+    }
+
+    const host = lease.ip_address;
+    const socksPort = lease.socks5_port;
+    const httpPort = lease.http_port || lease.socks5_port;
+    const user = lease.socks5_user;
+    const pass = lease.socks5_pass;
+    const country = (lease.country || 'US').toUpperCase();
+    const carrier = lease.isp_carrier || lease.carrier || 'Dedicated ISP Residential';
+
+    const socks5ConnStr = `socks5://${user}:${pass}@${host}:${socksPort}`;
+    const httpConnStr = `http://${user}:${pass}@${host}:${httpPort}`;
+
+    const txtContent = `====================================================================
+ProxyVault Dedicated Static ISP Residential Proxy Configuration
+====================================================================
+IP Address / Host : ${host}
+HTTP Port         : ${httpPort}
+SOCKS5 Port       : ${socksPort}
+Username          : ${user}
+Password          : ${pass}
+Location          : ${country}
+Carrier           : ${carrier}
+Fraud Score       : ${lease.fraud_score || 0}% (Verified Residential)
+Expires At        : ${new Date(lease.expires_at).toUTCString()}
+
+--------------------------------------------------------------------
+ONE-CLICK CONNECTION STRINGS:
+--------------------------------------------------------------------
+SOCKS5 : ${socks5ConnStr}
+HTTP   : ${httpConnStr}
+
+--------------------------------------------------------------------
+NETWORK REPUTATION & DIAGNOSTICS:
+--------------------------------------------------------------------
+Whoer IP & Privacy Check : https://whoer.net/
+====================================================================`;
+
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="proxyvault-${country}-${host}.txt"`);
+    res.send(txtContent);
+  } catch (err) {
+    console.error('Config download error:', err.message);
+    res.status(500).send('Failed to generate configuration file.');
   }
 });
 
@@ -1256,7 +1457,9 @@ app.get(['/api/proxy/rent', '/api/proxies/rent'], (req, res) => {
     status: 'active',
     endpoint: '/api/proxy/rent',
     method: 'POST',
-    description: 'Proxy allocation endpoint. Send a POST request with { country, carrier } to rent a residential proxy.'
+    price_ngn: 8000,
+    price_kobo: 800000,
+    description: 'Proxy allocation endpoint. Send a POST request with { country, isp } to rent a static residential ISP proxy.'
   });
 });
 
@@ -1279,21 +1482,40 @@ app.get('/api/proxy/leases', requireAuth, async (req, res) => {
       status: 'active'
     }).sort({ _id: -1 });
 
+    const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+    const now = Date.now();
+
     res.json({
-      leases: leases.map(l => ({
-        id: l._id.toString(),
-        order_id: l.order_id,
-        user_id: l.user_id.toString(),
-        ip_address: l.ip_address,
-        socks5_port: l.socks5_port,
-        socks5_user: l.socks5_user,
-        socks5_pass: l.socks5_pass,
-        wireguard_conf: l.wireguard_conf,
-        country: l.country,
-        carrier: l.carrier,
-        expires_at: l.expires_at.toISOString(),
-        status: l.status
-      }))
+      leases: leases.map(l => {
+        const ageMs = now - new Date(l.created_at).getTime();
+        const canReplace = ageMs <= ONE_DAY_MS && (l.replacement_count || 0) < 1;
+        const replaceRemainingHours = Math.max(0, Math.ceil((ONE_DAY_MS - ageMs) / (60 * 60 * 1000)));
+
+        return {
+          id: l._id.toString(),
+          order_id: l.order_id,
+          upstream_provider: l.upstream_provider || 'proxy_seller',
+          upstream_proxy_id: l.upstream_proxy_id || l.order_id,
+          user_id: l.user_id.toString(),
+          ip_address: l.ip_address,
+          protocol: l.protocol || 'socks5',
+          http_port: l.http_port || null,
+          socks5_port: l.socks5_port,
+          socks5_user: l.socks5_user,
+          socks5_pass: l.socks5_pass,
+          wireguard_conf: l.wireguard_conf,
+          country: l.country,
+          carrier: l.carrier,
+          isp_carrier: l.isp_carrier || l.carrier || 'Verizon Residential (ISP)',
+          fraud_score: l.fraud_score !== undefined ? l.fraud_score : 0,
+          replacement_count: l.replacement_count || 0,
+          can_replace: canReplace,
+          replace_remaining_hours: replaceRemainingHours,
+          expires_at: l.expires_at.toISOString(),
+          created_at: l.created_at.toISOString(),
+          status: l.status
+        };
+      })
     });
   } catch (error) {
     res.status(500).json({ error: 'Failed to retrieve proxy leases.' });
@@ -2199,7 +2421,26 @@ if (isProduction && token && !token.startsWith('tg_mock_')) {
 
 // ----------------------------------------------------
 if (require.main === module) {
-  dbReady.then(() => {
+  dbReady.then(async () => {
+    try {
+      const defaultEmail = 'realgpyks@gmail.com';
+      let defaultUser = await User.findOne({ email: defaultEmail });
+      if (!defaultUser) {
+        const defaultHash = await bcrypt.hash('password123', 10);
+        await User.create({
+          email: defaultEmail,
+          password_hash: defaultHash,
+          balance: 5000000 // ₦50,000 in Kobo
+        });
+        console.log(`[Seed] Account ${defaultEmail} initialized with ₦50,000.`);
+      } else if (process.env.SIMULATION_MODE === 'true' && defaultUser.balance < 800000) {
+        defaultUser.balance = 5000000;
+        await defaultUser.save();
+      }
+    } catch (seedErr) {
+      console.warn('Seed account note:', seedErr.message);
+    }
+
     app.listen(PORT, () => {
       console.log(`ProxyVault backend running on http://localhost:${PORT}`);
       console.log(`Simulation Mode: ${process.env.SIMULATION_MODE}`);

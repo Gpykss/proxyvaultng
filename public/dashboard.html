@@ -384,35 +384,68 @@
 
 
   <!-- ====================================================
-       RENT PROXY MODAL (CyberYozh Selection)
+  <!-- ====================================================
+       RENT PROXY MODAL (Proxy-Seller Dedicated ISP)
   ==================================================== -->
   <div class="modal-overlay" id="rent-proxy-modal">
     <div class="modal-card">
       <button class="modal-close-btn" id="close-rent-proxy-modal-btn">&times;</button>
-      <h2 class="modal-title">Rent Static Residential IP</h2>
+      <h2 class="modal-title" style="margin-bottom: 0.35rem;">Static Residential ISP Proxy (Dedicated)</h2>
+      <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.9rem;">
+        Dedicated clean ISP subnets with 0% fraud score. Delivered within &lt; 5 seconds.
+      </p>
 
-      <div class="form-group">
-        <label class="form-label" for="modal-proxy-country">1. Select Target Country</label>
-        <input type="text" id="modal-proxy-country-search" class="form-input" placeholder="🔍 Search country..." style="margin-bottom: 0.4rem; font-size: 0.85rem;">
-        <select class="form-select" id="modal-proxy-country">
-          <!-- Filled dynamically -->
-        </select>
+      <!-- Trust Badges per PRD -->
+      <div class="prd-modal-badges" style="display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 1.15rem;">
+        <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); font-size: 0.72rem; padding: 0.25rem 0.55rem; border-radius: 999px; font-weight: 600;">🛡️ 0% Fraud Score</span>
+        <span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); font-size: 0.72rem; padding: 0.25rem 0.55rem; border-radius: 999px; font-weight: 600;">🇺🇸/🇬🇧 Verizon &amp; AT&amp;T Residential</span>
+        <span class="badge" style="background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3); font-size: 0.72rem; padding: 0.25rem 0.55rem; border-radius: 999px; font-weight: 600;">⚡ Upwork &amp; PayPal Verified</span>
       </div>
 
       <div class="form-group">
-        <label class="form-label" for="modal-proxy-isp">2. Select Broadband ISP Carrier</label>
-        <select class="form-select" id="modal-proxy-isp">
-          <!-- Filled dynamically -->
+        <label class="form-label" for="modal-proxy-country">Select Target Country</label>
+        <select class="form-select" id="modal-proxy-country">
+          <optgroup label="⭐ Most Popular (Tier-1)">
+            <option value="US" selected>🇺🇸 United States</option>
+            <option value="GB">🇬🇧 United Kingdom</option>
+            <option value="CA">🇨🇦 Canada</option>
+            <option value="DE">🇩🇪 Germany</option>
+          </optgroup>
+          <optgroup label="🌍 Global Locations">
+            <option value="FR">🇫🇷 France</option>
+            <option value="NL">🇳🇱 Netherlands</option>
+            <option value="ES">🇪🇸 Spain</option>
+            <option value="IT">🇮🇹 Italy</option>
+            <option value="PL">🇵🇱 Poland</option>
+            <option value="SG">🇸🇬 Singapore</option>
+            <option value="JP">🇯🇵 Japan</option>
+            <option value="BR">🇧🇷 Brazil</option>
+            <option value="HK">🇭🇰 Hong Kong</option>
+            <option value="IN">🇮🇳 India</option>
+            <option value="KR">🇰🇷 South Korea</option>
+            <option value="AT">🇦🇹 Austria</option>
+            <option value="CZ">🇨🇿 Czech Republic</option>
+            <option value="RO">🇷🇴 Romania</option>
+            <option value="LV">🇱🇻 Latvia</option>
+            <option value="TW">🇹🇼 Taiwan</option>
+            <option value="TH">🇹🇭 Thailand</option>
+            <option value="TR">🇹🇷 Turkey</option>
+            <option value="IL">🇮🇱 Israel</option>
+            <option value="UA">🇺🇦 Ukraine</option>
+          </optgroup>
         </select>
       </div>
 
       <div style="background: #0d1726; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.85rem 1rem; margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center;">
-        <span style="font-size: 0.85rem; color: var(--text-secondary);">30-Day Lease Price:</span>
-        <span id="modal-proxy-price-display" style="font-size: 1.15rem; font-weight: 800; color: var(--emerald-text); font-family: var(--font-mono);">₦15,000</span>
+        <div>
+          <span style="font-size: 0.85rem; color: var(--text-secondary); display: block;">30-Day Dedicated Lease:</span>
+          <span style="font-size: 0.72rem; color: var(--text-muted);"><del id="modal-proxy-strike-display">₦12,000</del> (38% Retail Discount)</span>
+        </div>
+        <span id="modal-proxy-price-display" style="font-size: 1.35rem; font-weight: 800; color: var(--emerald-text); font-family: var(--font-mono);">₦7,500</span>
       </div>
 
-      <button class="btn-primary" id="confirm-buy-proxy-btn" style="width: 100%; padding: 0.75rem;">
-        Rent Static IP
+      <button class="btn-primary" id="confirm-buy-proxy-btn" style="width: 100%; padding: 0.85rem; font-size: 0.95rem; font-weight: 700;">
+        Deploy Instant Proxy (₦7,500)
       </button>
     </div>
   </div>

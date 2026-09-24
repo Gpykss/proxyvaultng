@@ -39,19 +39,82 @@
       <a href="#features" class="btn btn-outline hero-btn">Explore Features</a>
     </div>
 
-    <!-- Terminal Mockup -->
-    <div class="terminal-mockup">
-      <div class="terminal-header">
-        <div class="terminal-dot red"></div>
-        <div class="terminal-dot yellow"></div>
-        <div class="terminal-dot green"></div>
-        <div class="terminal-title">proxyvault-api-session</div>
+    <!-- Interactive Direct Buying Dashboard Widget -->
+    <div class="direct-buy-widget" id="direct-buy-widget">
+      <div class="direct-buy-header">
+        <div class="direct-buy-status">
+          <span class="pulse-indicator"></span>
+          <span>Dedicated Subnets In Stock • Instant Delivery &lt; 5s</span>
+        </div>
+        <div class="direct-buy-badges">
+          <span class="badge-mini badge-green">🛡️ 0% Fraud Score</span>
+          <span class="badge-mini badge-blue">📶 Residential ASN</span>
+          <span class="badge-mini badge-purple">⚡ Upwork / PayPal Verified</span>
+        </div>
       </div>
-      <div class="terminal-body">
-        <div class="terminal-line"><span class="terminal-prompt">user@proxyvault:~$</span> <span class="terminal-output">curl -X POST https://proxyvaultng.vercel.app/api/proxy/rent \</span></div>
-        <div class="terminal-line"><span class="terminal-output">  -H "Authorization: Bearer pv_token_..." \</span></div>
-        <div class="terminal-line"><span class="terminal-output">  -d '{"country": "US", "isp": "comcast"}'</span></div>
-        <div class="terminal-line"><span class="terminal-prompt">user@proxyvault:~$</span> <span class="terminal-output">{"status": "success", "ip": "173.23.45.102", "port": 1080, "type": "SOCKS5"}</span></div>
+
+      <div class="direct-buy-body">
+        <div class="direct-buy-controls">
+          <div class="buy-field-group">
+            <label class="buy-field-label" for="landing-proxy-country">Select Target Country</label>
+            <select class="buy-select" id="landing-proxy-country">
+              <optgroup label="⭐ Most Popular (Tier-1)">
+                <option value="US" selected>🇺🇸 United States</option>
+                <option value="GB">🇬🇧 United Kingdom</option>
+                <option value="CA">🇨🇦 Canada</option>
+                <option value="DE">🇩🇪 Germany</option>
+              </optgroup>
+              <optgroup label="🌍 Global Locations">
+                <option value="FR">🇫🇷 France</option>
+                <option value="NL">🇳🇱 Netherlands</option>
+                <option value="ES">🇪🇸 Spain</option>
+                <option value="IT">🇮🇹 Italy</option>
+                <option value="PL">🇵🇱 Poland</option>
+                <option value="SG">🇸🇬 Singapore</option>
+                <option value="JP">🇯🇵 Japan</option>
+                <option value="BR">🇧🇷 Brazil</option>
+                <option value="HK">🇭🇰 Hong Kong</option>
+                <option value="IN">🇮🇳 India</option>
+                <option value="KR">🇰🇷 South Korea</option>
+                <option value="AT">🇦🇹 Austria</option>
+                <option value="CZ">🇨🇿 Czech Republic</option>
+                <option value="RO">🇷🇴 Romania</option>
+                <option value="LV">🇱🇻 Latvia</option>
+                <option value="TW">🇹🇼 Taiwan</option>
+                <option value="TH">🇹🇭 Thailand</option>
+                <option value="TR">🇹🇷 Turkey</option>
+                <option value="IL">🇮🇱 Israel</option>
+                <option value="UA">🇺🇦 Ukraine</option>
+              </optgroup>
+            </select>
+          </div>
+        </div>
+
+        <!-- Live Connection String Preview Box -->
+        <div class="direct-buy-preview">
+          <div class="preview-header">
+            <span class="preview-title">⚡ Connection String Output:</span>
+            <span class="preview-tag" id="preview-proto-tag">SOCKS5 &amp; HTTP</span>
+          </div>
+          <div class="preview-string" id="landing-preview-conn">
+            socks5://pv_isp_user:sec_auth@69.181.42.10:1080
+          </div>
+        </div>
+
+        <!-- Price & Instant CTA -->
+        <div class="direct-buy-footer">
+          <div class="direct-buy-pricing">
+            <span class="price-duration">30-Day Dedicated Lease:</span>
+            <div class="price-val-group">
+              <span class="price-strike"><del>₦12,000</del></span>
+              <span class="price-current">₦7,500</span>
+              <span class="price-save-badge">38% OFF</span>
+            </div>
+          </div>
+          <button class="btn btn-primary direct-buy-btn" id="landing-buy-now-btn">
+            🚀 Deploy Instant Proxy (₦7,500)
+          </button>
+        </div>
       </div>
     </div>
   </section>
@@ -274,22 +337,277 @@
     toggleBtn.addEventListener('click', (e) => {
       e.preventDefault();
       isLogin = !isLogin;
+      const hasPendingBuy = !!sessionStorage.getItem('pv_pending_buy');
+      const currentPriceFmt = window.currentProxyPriceFmt || '6,826';
       if (isLogin) {
         authTitle.textContent = 'Welcome Back';
-        authSubtitle.textContent = 'Log in to manage your static IPs and OTP numbers';
-        submitBtn.textContent = 'Log In';
+        authSubtitle.textContent = hasPendingBuy ? 'Log in to deploy your selected ISP proxy' : 'Log in to manage your static IPs and OTP numbers';
+        submitBtn.textContent = hasPendingBuy ? `Log In & Deploy (₦${currentPriceFmt})` : 'Log In';
         submitBtn.className = 'btn btn-primary';
         toggleText.textContent = "Don't have an account?";
         toggleBtn.textContent = 'Create Account';
       } else {
-        authTitle.textContent = 'Create Account';
-        authSubtitle.textContent = 'Register to fund wallet and allocate global resources';
-        submitBtn.textContent = 'Sign Up';
+        authTitle.textContent = hasPendingBuy ? 'Create Account to Deploy' : 'Create Account';
+        authSubtitle.textContent = hasPendingBuy ? 'Register to fund wallet and deploy your dedicated ISP proxy' : 'Register to fund wallet and allocate global resources';
+        submitBtn.textContent = hasPendingBuy ? `Sign Up & Deploy (₦${currentPriceFmt})` : 'Sign Up';
         submitBtn.className = 'btn btn-secondary';
         toggleText.textContent = 'Already registered?';
         toggleBtn.textContent = 'Log In';
       }
     });
+
+    // ----------------------------------------------------
+    // DIRECT BUYING WIDGET (LANDING PAGE)
+    // ----------------------------------------------------
+    const landingCountrySelect = document.getElementById('landing-proxy-country');
+    const landingPreviewConn = document.getElementById('landing-preview-conn');
+    const landingBuyNowBtn = document.getElementById('landing-buy-now-btn');
+
+    const countryCarrierData = {
+      US: {
+        carriers: [
+          { value: 'any', label: '⚡ Instant Auto-Select (Lowest 0% Fraud Score)' },
+          { value: 'Verizon', label: 'Verizon Fios Residential (US)' },
+          { value: 'AT&T', label: 'AT&T Internet Residential (US)' },
+          { value: 'Comcast', label: 'Comcast Cable Residential (US)' }
+        ],
+        sampleIp: '69.181.42.10'
+      },
+      GB: {
+        carriers: [
+          { value: 'any', label: '⚡ Instant Auto-Select (Lowest 0% Fraud Score)' },
+          { value: 'BT', label: 'BT Broadband Residential (UK)' },
+          { value: 'Virgin', label: 'Virgin Media Residential (UK)' },
+          { value: 'Sky', label: 'Sky UK Residential (UK)' }
+        ],
+        sampleIp: '82.132.218.45'
+      },
+      CA: {
+        carriers: [
+          { value: 'any', label: '⚡ Instant Auto-Select (Lowest 0% Fraud Score)' },
+          { value: 'Rogers', label: 'Rogers Cable Residential (CA)' },
+          { value: 'Bell', label: 'Bell Canada Residential (CA)' }
+        ],
+        sampleIp: '174.114.78.22'
+      },
+      DE: {
+        carriers: [
+          { value: 'any', label: '⚡ Instant Auto-Select (Lowest 0% Fraud Score)' },
+          { value: 'Telekom', label: 'Deutsche Telekom Residential (DE)' },
+          { value: 'Vodafone', label: 'Vodafone Kabel Residential (DE)' }
+        ],
+        sampleIp: '178.25.132.88'
+      },
+      FR: {
+        carriers: [
+          { value: 'any', label: '⚡ Instant Auto-Select (Lowest 0% Fraud Score)' },
+          { value: 'Orange', label: 'Orange France Residential (FR)' },
+          { value: 'Free', label: 'Free SAS Residential (FR)' }
+        ],
+        sampleIp: '90.84.142.60'
+      },
+      NL: {
+        carriers: [
+          { value: 'any', label: '⚡ Instant Auto-Select (Lowest 0% Fraud Score)' },
+          { value: 'KPN', label: 'KPN Residential (NL)' },
+          { value: 'Ziggo', label: 'Ziggo Broadband (NL)' }
+        ],
+        sampleIp: '84.106.12.91'
+      },
+      ES: {
+        carriers: [
+          { value: 'any', label: '⚡ Instant Auto-Select (Lowest 0% Fraud Score)' },
+          { value: 'Movistar', label: 'Movistar Residential (ES)' },
+          { value: 'Vodafone', label: 'Vodafone Espana (ES)' }
+        ],
+        sampleIp: '88.1.144.52'
+      },
+      IT: {
+        carriers: [
+          { value: 'any', label: '⚡ Instant Auto-Select (Lowest 0% Fraud Score)' },
+          { value: 'TIM', label: 'Telecom Italia Mobile (IT)' },
+          { value: 'Vodafone', label: 'Vodafone Omnitel (IT)' }
+        ],
+        sampleIp: '79.44.112.33'
+      },
+      PL: {
+        carriers: [
+          { value: 'any', label: '⚡ Instant Auto-Select (Lowest 0% Fraud Score)' },
+          { value: 'Orange', label: 'Orange Polska Residential (PL)' },
+          { value: 'UPC', label: 'UPC Polska Residential (PL)' }
+        ],
+        sampleIp: '89.64.120.15'
+      },
+      SG: {
+        carriers: [
+          { value: 'any', label: '⚡ Instant Auto-Select (Lowest 0% Fraud Score)' },
+          { value: 'Singtel', label: 'Singtel Residential (SG)' },
+          { value: 'StarHub', label: 'StarHub Broadband (SG)' }
+        ],
+        sampleIp: '118.200.44.82'
+      },
+      JP: {
+        carriers: [
+          { value: 'any', label: '⚡ Instant Auto-Select (Lowest 0% Fraud Score)' },
+          { value: 'NTT', label: 'NTT Communications (JP)' },
+          { value: 'SoftBank', label: 'SoftBank BB Residential (JP)' }
+        ],
+        sampleIp: '126.158.74.19'
+      },
+      BR: {
+        carriers: [
+          { value: 'any', label: '⚡ Instant Auto-Select (Lowest 0% Fraud Score)' },
+          { value: 'Claro', label: 'Claro Brasil Residential (BR)' },
+          { value: 'Vivo', label: 'Telefonica Brasil / Vivo (BR)' }
+        ],
+        sampleIp: '177.18.204.30'
+      },
+      HK: {
+        carriers: [
+          { value: 'any', label: '⚡ Instant Auto-Select (Lowest 0% Fraud Score)' },
+          { value: 'HKT', label: 'HKT / PCCW Residential (HK)' },
+          { value: 'HKBN', label: 'Hong Kong Broadband (HK)' }
+        ],
+        sampleIp: '218.102.88.14'
+      },
+      IN: {
+        carriers: [
+          { value: 'any', label: '⚡ Instant Auto-Select (Lowest 0% Fraud Score)' },
+          { value: 'Jio', label: 'Reliance Jio Fiber (IN)' },
+          { value: 'Airtel', label: 'Bharti Airtel Broadband (IN)' }
+        ],
+        sampleIp: '106.195.42.11'
+      },
+      KR: {
+        carriers: [
+          { value: 'any', label: '⚡ Instant Auto-Select (Lowest 0% Fraud Score)' },
+          { value: 'KT', label: 'Korea Telecom Residential (KR)' },
+          { value: 'SK', label: 'SK Broadband (KR)' }
+        ],
+        sampleIp: '121.134.80.25'
+      },
+      AT: {
+        carriers: [
+          { value: 'any', label: '⚡ Instant Auto-Select (Lowest 0% Fraud Score)' },
+          { value: 'A1', label: 'A1 Telekom Austria (AT)' }
+        ],
+        sampleIp: '80.120.15.44'
+      },
+      CZ: {
+        carriers: [
+          { value: 'any', label: '⚡ Instant Auto-Select (Lowest 0% Fraud Score)' },
+          { value: 'O2', label: 'O2 Czech Republic (CZ)' }
+        ],
+        sampleIp: '89.102.14.77'
+      },
+      RO: {
+        carriers: [
+          { value: 'any', label: '⚡ Instant Auto-Select (Lowest 0% Fraud Score)' },
+          { value: 'Digi', label: 'RCS & RDS / Digi (RO)' }
+        ],
+        sampleIp: '86.120.94.33'
+      },
+      LV: {
+        carriers: [
+          { value: 'any', label: '⚡ Instant Auto-Select (Lowest 0% Fraud Score)' },
+          { value: 'Tet', label: 'Tet SIA Residential (LV)' }
+        ],
+        sampleIp: '84.237.110.12'
+      },
+      TW: {
+        carriers: [
+          { value: 'any', label: '⚡ Instant Auto-Select (Lowest 0% Fraud Score)' },
+          { value: 'Chunghwa', label: 'Chunghwa Telecom (TW)' }
+        ],
+        sampleIp: '114.36.122.84'
+      },
+      TH: {
+        carriers: [
+          { value: 'any', label: '⚡ Instant Auto-Select (Lowest 0% Fraud Score)' },
+          { value: 'AIS', label: 'AIS Fibre Residential (TH)' }
+        ],
+        sampleIp: '110.168.45.60'
+      },
+      TR: {
+        carriers: [
+          { value: 'any', label: '⚡ Instant Auto-Select (Lowest 0% Fraud Score)' },
+          { value: 'TurkTelekom', label: 'Turk Telekomunikasyon (TR)' }
+        ],
+        sampleIp: '88.244.112.90'
+      },
+      IL: {
+        carriers: [
+          { value: 'any', label: '⚡ Instant Auto-Select (Lowest 0% Fraud Score)' },
+          { value: 'Bezeq', label: 'Bezeq The Israel Telecom (IL)' }
+        ],
+        sampleIp: '84.108.77.21'
+      },
+      UA: {
+        carriers: [
+          { value: 'any', label: '⚡ Instant Auto-Select (Lowest 0% Fraud Score)' },
+          { value: 'Kyivstar', label: 'Kyivstar GSM Residential (UA)' }
+        ],
+        sampleIp: '94.178.55.102'
+      }
+    };
+
+    function updateLandingPreview() {
+      if (!landingCountrySelect || !landingPreviewConn) return;
+      const c = (landingCountrySelect.value || 'US').toUpperCase();
+      const info = countryCarrierData[c] || countryCarrierData.US;
+      landingPreviewConn.textContent = `socks5://pv_isp_user:sec_auth@${info.sampleIp}:1080`;
+    }
+
+    if (landingCountrySelect) {
+      landingCountrySelect.addEventListener('change', updateLandingPreview);
+    }
+
+    // Sync live pricing dynamically from backend FX engine
+    async function syncProxyPricing() {
+      try {
+        const res = await fetch('/api/proxy/pricing');
+        if (!res.ok) return;
+        const data = await res.json();
+        window.currentProxyPrice = data.price_ngn;
+        window.currentProxyPriceFmt = data.price_formatted;
+        const currentEl = document.querySelector('.price-current');
+        const strikeEl = document.querySelector('.price-strike del');
+        const buyBtn = document.getElementById('landing-buy-now-btn');
+        if (currentEl) currentEl.textContent = `₦${data.price_formatted}`;
+        if (strikeEl) strikeEl.textContent = `₦${data.strike_formatted}`;
+        if (buyBtn) buyBtn.innerHTML = `🚀 Deploy Instant Proxy (₦${data.price_formatted})`;
+      } catch (e) {
+        console.log('Using default pricing display');
+      }
+    }
+    syncProxyPricing();
+
+    if (landingBuyNowBtn) {
+      landingBuyNowBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const country = landingCountrySelect ? landingCountrySelect.value : 'US';
+        const currentPrice = window.currentProxyPrice || 7500;
+        const currentPriceFmt = window.currentProxyPriceFmt || '7,500';
+        
+        // Save pending purchase intent
+        sessionStorage.setItem('pv_pending_buy', JSON.stringify({
+          country,
+          isp: 'any',
+          period: 30,
+          price: currentPrice
+        }));
+
+        // Set Sign-up state on auth modal
+        isLogin = false;
+        authTitle.textContent = 'Create Account to Deploy';
+        authSubtitle.textContent = `Sign up in seconds to deploy your dedicated ${country} residential ISP proxy (₦${currentPriceFmt})`;
+        submitBtn.textContent = `Sign Up & Deploy (₦${currentPriceFmt})`;
+        submitBtn.className = 'btn btn-secondary';
+        toggleText.textContent = 'Already registered?';
+        toggleBtn.textContent = 'Log In & Deploy';
+        authModal.classList.add('active');
+      });
+    }
 
     // Handle form submit actions
     authForm.addEventListener('submit', async (e) => {
