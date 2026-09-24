@@ -105,21 +105,6 @@
           </div>
         </div>
 
-        <!-- Live Connection String Preview Box -->
-        <div class="direct-buy-preview">
-          <div class="preview-header">
-            <span class="preview-title">⚡ Connection String Output:</span>
-            <span class="preview-tag" id="preview-proto-tag">SOCKS5 &amp; HTTP</span>
-          </div>
-          <div class="preview-string" id="landing-preview-conn">
-            socks5://pv_isp_user:sec_auth@69.181.42.10:1080
-          </div>
-          <div class="preview-compatibility-caption">
-            <span class="compat-icon">💡</span>
-            <span><strong>1-Click Compatible with:</strong> AdsPower, Dolphin{anty}, Multilogin, Chrome, Firefox, Proxifier &amp; Windows.</span>
-          </div>
-        </div>
-
         <!-- Price & Instant CTA -->
         <div class="direct-buy-footer">
           <div class="direct-buy-pricing">
@@ -395,20 +380,6 @@
     </div>
   </div>
 
-  <!-- Floating WhatsApp Quick Support Trigger -->
-  <a href="https://wa.me/2348000000000?text=Hello%20ProxyVault%2C%20I%20have%20an%20inquiry%20about%20your%20services" target="_blank" rel="noopener noreferrer" class="floating-whatsapp-btn" id="floating-whatsapp-btn" title="Chat with us on WhatsApp">
-    <div class="wa-icon-bubble">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.771-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.312.045-.698.077-1.111-.061-.264-.087-.584-.21-1.004-.396-1.785-.79-2.952-2.607-3.042-2.727-.089-.12-.727-.968-.727-1.848 0-.88.461-1.312.625-1.488.164-.176.357-.22.476-.22.12 0 .239.001.343.006.11.005.258-.042.404.308.15.361.512 1.25.556 1.341.045.09.075.195.015.314-.06.12-.09.195-.18.3-.089.105-.188.234-.268.315-.09.09-.184.187-.079.367.105.18.467.77 1.001 1.246.688.614 1.269.805 1.449.895.18.09.285.075.39-.045.105-.12.45-.525.57-.705.12-.18.239-.15.399-.09.16.06 1.02.481 1.196.568.176.087.294.132.338.207.045.075.045.435-.099.84z"/>
-        <path d="M12 2C6.477 2 2 6.477 2 12c0 1.891.524 3.66 1.434 5.176L2 22l4.981-1.393A9.957 9.957 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18.162c-1.637 0-3.155-.494-4.425-1.343l-.317-.213-2.958.827.842-2.887-.234-.339A8.127 8.127 0 013.84 12c0-4.5 3.66-8.162 8.16-8.162 4.501 0 8.162 3.662 8.162 8.162 0 4.5-3.661 8.162-8.162 8.162z"/>
-      </svg>
-    </div>
-    <div class="wa-text-group">
-      <span class="wa-title">Need Help? Chat on WhatsApp</span>
-      <span class="wa-subtitle">⚡ Quick Replies • Online</span>
-    </div>
-  </a>
-
   <div class="toast-container" id="toast-container"></div>
 
   <!-- Client-side Logic Script -->
@@ -546,49 +517,10 @@
     }
 
     // ----------------------------------------------------
-    // TAB 1: PROXY PREVIEW & BUY
+    // TAB 1: PROXY BUY
     // ----------------------------------------------------
     const landingCountrySelect = document.getElementById('landing-proxy-country');
-    const landingPreviewConn = document.getElementById('landing-preview-conn');
     const landingBuyNowBtn = document.getElementById('landing-buy-now-btn');
-
-    const countrySampleIps = {
-      US: '69.181.42.10',
-      GB: '82.132.218.45',
-      CA: '174.114.78.22',
-      DE: '178.25.132.88',
-      FR: '90.84.142.60',
-      NL: '84.106.12.91',
-      ES: '88.1.144.52',
-      IT: '79.44.112.33',
-      PL: '89.64.120.15',
-      SG: '118.200.44.82',
-      JP: '126.158.74.19',
-      BR: '177.18.204.30',
-      HK: '218.102.88.14',
-      IN: '106.195.42.11',
-      KR: '121.134.80.25',
-      AT: '80.120.15.44',
-      CZ: '89.102.14.77',
-      RO: '86.120.94.33',
-      LV: '84.237.110.12',
-      TW: '114.36.122.84',
-      TH: '110.168.45.60',
-      TR: '88.244.112.90',
-      IL: '84.108.77.21',
-      UA: '94.178.55.102'
-    };
-
-    function updateLandingPreview() {
-      if (!landingCountrySelect || !landingPreviewConn) return;
-      const c = (landingCountrySelect.value || 'US').toUpperCase();
-      const ip = countrySampleIps[c] || countrySampleIps.US;
-      landingPreviewConn.textContent = `socks5://pv_isp_user:sec_auth@${ip}:1080`;
-    }
-
-    if (landingCountrySelect) {
-      landingCountrySelect.addEventListener('change', updateLandingPreview);
-    }
 
     // Sync live pricing dynamically from backend FX engine
     async function syncProxyPricing() {
@@ -861,19 +793,6 @@
       });
     }
   </script>
-
-  <!-- Floating WhatsApp Quick Contact Trigger -->
-  <a href="https://wa.me/2348000000000?text=Hello%20ProxyVault%2C%20I%20have%20an%20inquiry%20about%20your%20services" target="_blank" rel="noopener noreferrer" class="floating-whatsapp-btn" title="Chat on WhatsApp">
-    <div class="wa-icon-bubble">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
-      </svg>
-    </div>
-    <div class="wa-text-group">
-      <span class="wa-title">Need Help? Chat on WhatsApp</span>
-      <span class="wa-subtitle">Instant Reply • Active Now</span>
-    </div>
-  </a>
 
   <!-- Floating Telegram Support Button -->
   <a href="https://t.me/ProxyvaultSupportBot?start=support" target="_blank" rel="noopener noreferrer" class="floating-support-btn" title="Chat with Support">

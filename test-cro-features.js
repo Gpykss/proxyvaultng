@@ -11,7 +11,7 @@ function get(url) {
 }
 
 async function verifyCROFeatures() {
-  console.log('--- Verifying High-Impact CRO Improvements ---');
+  console.log('--- Verifying Streamlined Landing Page & CRO Features ---');
 
   // 1. Landing Page HTML checks
   const landingRes = await get('http://localhost:3000/');
@@ -49,31 +49,22 @@ async function verifyCROFeatures() {
   }
   console.log('✓ Dual-tab widget complete with live SMS preview, OTP simulation, and auto-refund guarantee.');
 
-  // Requirement 3: Clarify Connection String Output
-  console.log('3. Checking Connection String Compatibility Caption...');
-  if (!html.includes('preview-compatibility-caption')) {
-    throw new Error('Missing preview-compatibility-caption element');
+  // Check that the connection string preview box is removed from landing page as requested
+  console.log('3. Verifying Connection String Output box is removed from landing page...');
+  if (html.includes('landing-preview-conn') || html.includes('socks5://pv_isp_user:sec_auth@69.181.42.10:1080')) {
+    throw new Error('Landing page still contains connection string output box!');
   }
-  if (!html.includes('AdsPower') || !html.includes('Dolphin{anty}') || !html.includes('Proxifier')) {
-    throw new Error('Missing compatibility caption tools (AdsPower, Dolphin{anty}, Proxifier)');
-  }
-  console.log('✓ Connection string output clarified with 1-Click compatibility caption.');
+  console.log('✓ Connection string output box cleanly removed from landing page.');
 
-  // Requirement 4: Floating WhatsApp Quick Contact Trigger
-  console.log('4. Checking Floating WhatsApp Button...');
-  if (!html.includes('floating-whatsapp-btn')) {
-    throw new Error('Landing page missing floating-whatsapp-btn');
+  // Check that the floating WhatsApp link is removed from landing page as requested
+  console.log('4. Verifying Floating WhatsApp link is removed from landing page...');
+  if (html.includes('floating-whatsapp-btn')) {
+    throw new Error('Landing page still contains floating-whatsapp-btn!');
   }
-  if (!html.includes('wa.me')) {
-    throw new Error('Landing page missing wa.me link');
+  if (!html.includes('floating-support-btn')) {
+    throw new Error('Landing page missing single Telegram support button');
   }
-
-  // Also check dashboard.html
-  const dashRes = await get('http://localhost:3000/dashboard');
-  if (!dashRes.body.includes('floating-whatsapp-btn') || !dashRes.body.includes('wa.me')) {
-    throw new Error('Dashboard missing floating-whatsapp-btn');
-  }
-  console.log('✓ Floating WhatsApp button present on both Landing Page and Dashboard.');
+  console.log('✓ Floating WhatsApp link removed, keeping clean single support trigger.');
 
   // 5. CSS checks
   const cssRes = await get('http://localhost:3000/css/style.css');
@@ -81,16 +72,10 @@ async function verifyCROFeatures() {
   if (!css.includes('.direct-buy-tabs') || !css.includes('.buy-tab-btn')) {
     throw new Error('CSS missing direct-buy-tabs styles');
   }
-  if (!css.includes('.floating-whatsapp-btn')) {
-    throw new Error('CSS missing floating-whatsapp-btn styles');
-  }
-  if (!css.includes('.preview-compatibility-caption')) {
-    throw new Error('CSS missing preview-compatibility-caption styles');
-  }
   if (!css.includes('.direct-buy-trust-note')) {
     throw new Error('CSS missing direct-buy-trust-note styles');
   }
-  console.log('✓ All CRO CSS classes verified in style.css.');
+  console.log('✓ All active CRO CSS classes verified in style.css.');
 
   // 6. JS checks
   const jsRes = await get('http://localhost:3000/js/app.js');
@@ -99,10 +84,10 @@ async function verifyCROFeatures() {
   }
   console.log('✓ app.js handles pv_pending_sms and intent routing.');
 
-  console.log('\n🎉 ALL 4 HIGH-IMPACT CRO IMPROVEMENTS VERIFIED & PASSING!');
+  console.log('\n🎉 ALL VERIFICATIONS PASSED SUCCESSFULLY!');
 }
 
 verifyCROFeatures().catch(err => {
-  console.error('CRO Verification Failed:', err);
+  console.error('Verification Failed:', err);
   process.exit(1);
 });
