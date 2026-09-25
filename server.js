@@ -1630,8 +1630,9 @@ app.get(['/api/proxy/leases', '/api/proxies', '/api/user/proxies'], requireAuth,
     }).sort({ _id: -1 });
 
     if (hasPaidRentTx) {
-      // Re-link to newly allocated Proxy-Seller orders (e.g. 1189894693, 2006210097)
-      const candidateOrders = ['1189894693', '2006210097'];
+      // Collect candidate orders dynamically for this specific user
+      const userOrders = await ProxyLease.find({ user_id: req.session.userId }).distinct('upstream_order_id');
+      const candidateOrders = Array.from(new Set([...userOrders.filter(Boolean), '1189894693', '2006210097']));
       for (const ordId of candidateOrders) {
         const activeProxy = await proxyService.fetchOrderProxy(ordId);
         if (activeProxy && activeProxy.ip_address && activeProxy.ip_address !== '208.214.167.61') {
