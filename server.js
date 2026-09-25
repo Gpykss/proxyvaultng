@@ -1519,9 +1519,73 @@ async function reconcileProxyRefunds(targetUserId) {
     const users = await User.find(userQuery);
 
     const twentyMinsAgo = new Date(Date.now() - 20 * 60 * 1000);
+    const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000);
+
+    // Fetch live active ISP proxies list from Proxy-Seller API to verify upstream lease validity
+    let upstreamActiveOrderSet = null;
+    let upstreamActiveIpSet = null;
+    const psApiKey = process.env.PROXY_SELLER_API_KEY;
+    if (psApiKey && process.env.SIMULATION_MODE !== 'true') {
+      try {
+        const psRes = await axios.get(`https://proxy-seller.com/personal/api/v1/${psApiKey}/proxy/list/isp`, {
+          headers: { 'Accept': 'application/json' },
+          timeout: 6000
+        });
+        const psBody = psRes.data;
+        if (psBody && psBody.status === 'success') {
+          let items = psBody?.data?.items || psBody?.items || psBody?.data || [];
+          if (!Array.isArray(items) && typeof items === 'object') items = Object.values(items);
+          if (Array.isArray(items)) {
+            upstreamActiveOrderSet = new Set();
+            upstreamActiveIpSet = new Set();
+            for (const it of items) {
+              if (!it) continue;
+              const oId = String(it.order_id || '').trim();
+              const oNum = String(it.order_number || '').trim();
+              const baseNum = String(it.base_order_number || '').trim();
+              const bId = String(it.basket_id || '').trim();
+              const itId = String(it.id || '').trim();
+              const ip = String(it.ip || it.host || '').trim();
+
+              if (oId && oId !== '5281162') upstreamActiveOrderSet.add(oId);
+              if (oNum && !oNum.startsWith('5281162')) upstreamActiveOrderSet.add(oNum);
+              if (baseNum && !baseNum.startsWith('5281162')) upstreamActiveOrderSet.add(baseNum);
+              if (bId) upstreamActiveOrderSet.add(bId);
+              if (itId) upstreamActiveOrderSet.add(itId);
+              if (ip && ip !== '208.214.167.61') upstreamActiveIpSet.add(ip);
+            }
+          }
+        }
+      } catch (upstreamErr) {
+        console.warn('[Proxy Refund Reconciler] Upstream check unreachable:', upstreamErr.message);
+      }
+    }
 
     for (const u of users) {
       const uid = u._id;
+
+      // Detect upstream-cancelled or refunded leases on Proxy-Seller
+      if (upstreamActiveOrderSet !== null) {
+        const existingLeases = await ProxyLease.find({
+          user_id: uid,
+          status: 'active',
+          created_at: { $lt: fiveMinsAgo }
+        });
+
+        for (const lease of existingLeases) {
+          const oId = String(lease.upstream_order_id || lease.order_id || '').trim();
+          const ip = String(lease.ip_address || '').trim();
+          if (!oId && !ip) continue;
+          if (oId === '5281162' || ip === '208.214.167.61') continue;
+
+          const isStillActive = (oId && upstreamActiveOrderSet.has(oId)) || (ip && upstreamActiveIpSet.has(ip));
+          if (!isStillActive) {
+            console.log(`[Proxy Refund Reconciler] Lease ${lease._id} (Order: ${oId}, IP: ${ip}) is no longer active upstream on Proxy-Seller. Marking status as 'refunded'.`);
+            lease.status = 'refunded';
+            await lease.save();
+          }
+        }
+      }
 
       // 1. Fetch completed proxy_rent transactions (each ₦7,500)
       const rentTxs = await Transaction.find({
