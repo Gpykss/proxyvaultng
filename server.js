@@ -1529,7 +1529,7 @@ async function reconcileProxyRefunds(targetUserId) {
       try {
         const psRes = await axios.get(`https://proxy-seller.com/personal/api/v1/${psApiKey}/proxy/list/isp`, {
           headers: { 'Accept': 'application/json' },
-          timeout: 6000
+          timeout: 12000
         });
         const psBody = psRes.data;
         if (psBody && psBody.status === 'success') {
@@ -1568,8 +1568,7 @@ async function reconcileProxyRefunds(targetUserId) {
       if (upstreamActiveOrderSet !== null) {
         const existingLeases = await ProxyLease.find({
           user_id: uid,
-          status: 'active',
-          created_at: { $lt: fiveMinsAgo }
+          status: 'active'
         });
 
         for (const lease of existingLeases) {
@@ -1602,6 +1601,15 @@ async function reconcileProxyRefunds(targetUserId) {
         type: 'proxy_refund',
         status: 'completed'
       });
+
+      // If user has received full refunds for all rentals, deactivate all active/provisioning leases
+      const netEntitled = Math.max(0, rentTxs.length - refundTxs.length);
+      if (netEntitled === 0) {
+        await ProxyLease.updateMany(
+          { user_id: uid, status: { $in: ['active', 'provisioning'] } },
+          { $set: { status: 'refunded' } }
+        );
+      }
 
       // 3. Fetch genuinely active working leases with real allocated IP
       const activeLeases = await ProxyLease.find({
@@ -1650,7 +1658,18 @@ async function reconcileProxyRefunds(targetUserId) {
           });
         }
 
-        // Only delete stale provisioning leases older than 20 minutes
+        // Immediately mark the refunded leases as 'refunded'
+        const leasesToRefund = await ProxyLease.find({
+          user_id: uid,
+          status: { $in: ['active', 'provisioning'] }
+        }).sort({ created_at: 1 }).limit(owedRefundCount);
+
+        for (const l of leasesToRefund) {
+          l.status = 'refunded';
+          await l.save();
+        }
+
+        // Delete stale provisioning leases older than 20 minutes
         await ProxyLease.deleteMany({
           user_id: uid,
           status: 'provisioning',
@@ -1686,34 +1705,43 @@ app.get(['/api/proxy/leases', '/api/proxies', '/api/user/proxies'], requireAuth,
     // Reconcile and credit any pending proxy refunds
     await reconcileProxyRefunds(req.session.userId);
 
-    // Check if the user has a genuine paid proxy transaction
-    const hasPaidRentTx = await Transaction.findOne({
+    // Calculate net paid rentals entitled to this user
+    const rentTxCount = await Transaction.countDocuments({
       user_id: req.session.userId,
       type: 'proxy_rent',
       status: 'completed'
-    }).sort({ _id: -1 });
+    });
+    const refundTxCount = await Transaction.countDocuments({
+      user_id: req.session.userId,
+      type: 'proxy_refund',
+      status: 'completed'
+    });
+    const netEntitled = Math.max(0, rentTxCount - refundTxCount);
 
-    if (hasPaidRentTx) {
-      // Collect candidate orders dynamically for this specific user
-      const userOrders = await ProxyLease.find({ user_id: req.session.userId }).distinct('upstream_order_id');
-      const candidateOrders = Array.from(new Set([...userOrders.filter(Boolean), '1189894693', '2006210097']));
-      for (const ordId of candidateOrders) {
+    if (netEntitled === 0) {
+      // User has 0 active paid rentals (all were refunded). Deactivate any leftover leases.
+      await ProxyLease.updateMany(
+        { user_id: req.session.userId, status: { $in: ['active', 'provisioning'] } },
+        { $set: { status: 'refunded' } }
+      );
+    } else {
+      // Dynamically fetch and link only unfulfilled candidate orders
+      const userOrders = await ProxyLease.find({
+        user_id: req.session.userId,
+        status: { $ne: 'refunded' }
+      }).distinct('upstream_order_id');
+
+      for (const ordId of userOrders.filter(Boolean)) {
+        if (ordId === '5281162') continue;
         const activeProxy = await proxyService.fetchOrderProxy(ordId);
         if (activeProxy && activeProxy.ip_address && activeProxy.ip_address !== '208.214.167.61') {
           let existingLease = await ProxyLease.findOne({
             user_id: req.session.userId,
-            $or: [
-              { order_id: ordId },
-              { upstream_order_id: ordId },
-              { ip_address: activeProxy.ip_address },
-              { status: 'provisioning' }
-            ]
+            upstream_order_id: ordId,
+            status: { $ne: 'refunded' }
           }).sort({ _id: -1 });
 
           if (existingLease) {
-            existingLease.order_id = ordId;
-            existingLease.upstream_order_id = ordId;
-            existingLease.upstream_proxy_id = activeProxy.upstream_proxy_id || ordId;
             existingLease.ip_address = activeProxy.ip_address;
             existingLease.http_port = activeProxy.http_port;
             existingLease.socks5_port = activeProxy.socks5_port;
@@ -1722,42 +1750,9 @@ app.get(['/api/proxy/leases', '/api/proxies', '/api/user/proxies'], requireAuth,
             existingLease.wireguard_conf = activeProxy.wireguard_conf || '';
             existingLease.status = 'active';
             await existingLease.save();
-          } else {
-            await ProxyLease.create({
-              user_id: req.session.userId,
-              order_id: ordId,
-              upstream_provider: 'proxy_seller',
-              upstream_order_id: ordId,
-              upstream_proxy_id: activeProxy.upstream_proxy_id || ordId,
-              ip_address: activeProxy.ip_address,
-              protocol: 'socks5',
-              http_port: activeProxy.http_port,
-              socks5_port: activeProxy.socks5_port,
-              socks5_user: activeProxy.socks5_user,
-              socks5_pass: activeProxy.socks5_pass,
-              wireguard_conf: activeProxy.wireguard_conf || '',
-              country: 'US',
-              carrier: 'Comcast / AT&T (ISP Residential)',
-              isp_carrier: 'Comcast / AT&T (ISP Residential)',
-              fraud_score: 0,
-              replacement_count: 0,
-              expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-              status: 'active'
-            });
           }
-          break;
         }
       }
-    } else {
-      // Purge any test or legacy leases for users without a verified completed payment
-      await ProxyLease.deleteMany({
-        user_id: req.session.userId,
-        $or: [
-          { order_id: '5281162' },
-          { upstream_order_id: '5281162' },
-          { ip_address: '208.214.167.61' }
-        ]
-      });
     }
 
     // Automatically poll and sync any pending/provisioning leases for this user
@@ -1770,6 +1765,16 @@ app.get(['/api/proxy/leases', '/api/proxies', '/api/user/proxies'], requireAuth,
       ip_address: { $nin: ['208.214.167.61', ''] },
       status: { $in: ['active', 'provisioning'] }
     }).sort({ _id: -1 });
+
+    // Strict entitlement enforcement: user cannot see more active proxies than net un-refunded rentals
+    if (leases.length > netEntitled) {
+      const surplus = leases.slice(netEntitled);
+      for (const sl of surplus) {
+        sl.status = 'refunded';
+        await sl.save();
+      }
+      leases = leases.slice(0, netEntitled);
+    }
 
     const ONE_DAY_MS = 24 * 60 * 60 * 1000;
     const now = Date.now();
