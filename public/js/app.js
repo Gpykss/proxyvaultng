@@ -811,6 +811,8 @@ function renderStep1Services(query = '') {
   // Sort others alphabetically
   otherServices.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
+  const fragment = document.createDocumentFragment();
+
   const renderServiceRow = (s) => {
     const row = document.createElement('div');
     row.className = 'step-select-row';
@@ -835,7 +837,7 @@ function renderStep1Services(query = '') {
       selectService(s);
     });
 
-    container.appendChild(row);
+    fragment.appendChild(row);
   };
 
   topServices.forEach(renderServiceRow);
@@ -843,11 +845,22 @@ function renderStep1Services(query = '') {
   if (topServices.length > 0 && otherServices.length > 0) {
     const divider = document.createElement('div');
     divider.className = 'step-list-divider';
-    divider.textContent = 'All Services';
-    container.appendChild(divider);
+    divider.textContent = `All Services (${otherServices.length})`;
+    fragment.appendChild(divider);
   }
 
-  otherServices.forEach(renderServiceRow);
+  // Render up to 250 in the default view or all if filtered
+  const toRender = filter ? otherServices : otherServices.slice(0, 250);
+  toRender.forEach(renderServiceRow);
+
+  if (!filter && otherServices.length > 250) {
+    const hint = document.createElement('div');
+    hint.style.cssText = 'text-align:center; padding: 0.75rem; font-size: 0.75rem; color: var(--text-muted);';
+    hint.textContent = `+${otherServices.length - 250} more services. Use search 🔍 to find any app or service.`;
+    fragment.appendChild(hint);
+  }
+
+  container.appendChild(fragment);
 }
 
 function selectService(serviceObj) {
@@ -917,6 +930,8 @@ function renderStep2Countries(query = '') {
   // Sort others alphabetically
   otherCountries.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
+  const fragment = document.createDocumentFragment();
+
   const renderCountryRow = (c) => {
     const row = document.createElement('div');
     row.className = 'step-select-row';
@@ -938,7 +953,7 @@ function renderStep2Countries(query = '') {
       selectCountry(c, flag, cleanName);
     });
 
-    container.appendChild(row);
+    fragment.appendChild(row);
   };
 
   tier1Countries.forEach(renderCountryRow);
@@ -946,11 +961,12 @@ function renderStep2Countries(query = '') {
   if (tier1Countries.length > 0 && otherCountries.length > 0) {
     const divider = document.createElement('div');
     divider.className = 'step-list-divider';
-    divider.textContent = 'All Countries';
-    container.appendChild(divider);
+    divider.textContent = `All Countries (${otherCountries.length})`;
+    fragment.appendChild(divider);
   }
 
   otherCountries.forEach(renderCountryRow);
+  container.appendChild(fragment);
 }
 
 function selectCountry(countryObj, flag, name) {
