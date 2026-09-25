@@ -627,6 +627,44 @@
     if (smsServiceSelect) smsServiceSelect.addEventListener('change', updateSmsLandingPreview);
     if (smsCountrySelect) smsCountrySelect.addEventListener('change', updateSmsLandingPreview);
 
+    // Populate landing page dropdowns dynamically from live 5SIM catalog
+    fetch('/api/v1/sms/catalog')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (!data) return;
+        if (data.services && data.services.length > 0 && smsServiceSelect) {
+          const currentVal = smsServiceSelect.value;
+          smsServiceSelect.innerHTML = '';
+          data.services.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s.id;
+            opt.setAttribute('data-price', s.price_ngn || 1200);
+            opt.setAttribute('data-code', '849-201');
+            opt.textContent = `${s.name} (₦${(s.price_ngn || 1200).toLocaleString()})`;
+            smsServiceSelect.appendChild(opt);
+          });
+          if (currentVal && Array.from(smsServiceSelect.options).some(o => o.value === currentVal)) {
+            smsServiceSelect.value = currentVal;
+          }
+        }
+
+        if (data.countries && data.countries.length > 0 && smsCountrySelect) {
+          const currentCountryVal = smsCountrySelect.value;
+          smsCountrySelect.innerHTML = '';
+          data.countries.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.id;
+            opt.textContent = c.name;
+            smsCountrySelect.appendChild(opt);
+          });
+          if (currentCountryVal && Array.from(smsCountrySelect.options).some(o => o.value === currentCountryVal)) {
+            smsCountrySelect.value = currentCountryVal;
+          }
+        }
+        updateSmsLandingPreview();
+      })
+      .catch(() => {});
+
     if (landingBuySmsBtn) {
       landingBuySmsBtn.addEventListener('click', (e) => {
         e.preventDefault();

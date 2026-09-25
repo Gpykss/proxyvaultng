@@ -759,7 +759,7 @@ app.get('/api/v1/sms/services', requireAuth, async (req, res) => {
 });
 
 // Get supported virtual number countries (5SIM integration)
-app.get('/api/v1/sms/countries', requireAuth, async (req, res) => {
+app.get('/api/v1/sms/countries', async (req, res) => {
   const defaultCountries = [
     { id: 'usa', name: 'United States 🇺🇸' },
     { id: 'canada', name: 'Canada 🇨🇦' },
@@ -792,7 +792,7 @@ let smsCatalogCacheTime = 0;
 const SMS_CACHE_DURATION_MS = 10 * 60 * 1000; // 10 minutes
 
 // Dynamic SMS catalog endpoint retrieving dynamic services and countries
-app.get('/api/v1/sms/catalog', requireAuth, async (req, res) => {
+app.get('/api/v1/sms/catalog', async (req, res) => {
   const defaultServices = [
     { id: 'telegram', name: 'Telegram' },
     { id: 'whatsapp', name: 'WhatsApp' },
@@ -921,7 +921,7 @@ async function getUsdNgnExchangeRate() {
 }
 
 // Get available operators for country and platform with success ratings and dynamic pricing
-app.get('/api/v1/sms/operators', requireAuth, async (req, res) => {
+app.get('/api/v1/sms/operators', async (req, res) => {
   const { country, service } = req.query;
   const targetCountry = country || 'usa';
   const targetService = service || 'whatsapp';
