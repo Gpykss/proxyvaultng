@@ -1518,6 +1518,8 @@ async function reconcileProxyRefunds(targetUserId) {
     const userQuery = targetUserId ? { _id: targetUserId } : {};
     const users = await User.find(userQuery);
 
+    const twentyMinsAgo = new Date(Date.now() - 20 * 60 * 1000);
+
     for (const u of users) {
       const uid = u._id;
 
@@ -1544,8 +1546,24 @@ async function reconcileProxyRefunds(targetUserId) {
         ip_address: { $exists: true, $nin: ['', 'Allocating...', '208.214.167.61'] }
       });
 
-      // Calculate how many paid rentals are unfulfilled / refunded upstream
-      const owedRefundCount = rentTxs.length - (refundTxs.length + activeLeases.length);
+      // 4. Protect active in-flight provisioning leases (< 20 mins old)
+      const recentPendingLeases = await ProxyLease.find({
+        user_id: uid,
+        status: 'provisioning',
+        created_at: { $gte: twentyMinsAgo }
+      });
+
+      const latestRentTx = rentTxs[rentTxs.length - 1];
+      const isLatestRentRecent = latestRentTx && (Date.now() - new Date(latestRentTx.created_at).getTime() < 20 * 60 * 1000);
+
+      // Only count unfulfilled rentals that are stale (> 20 mins) without active or in-flight lease
+      const coveredCount = refundTxs.length + activeLeases.length + recentPendingLeases.length;
+      let owedRefundCount = rentTxs.length - coveredCount;
+
+      // Never prematurely auto-refund a recent purchase while upstream carrier is allocating
+      if (isLatestRentRecent && owedRefundCount > 0 && activeLeases.length === 0 && recentPendingLeases.length > 0) {
+        owedRefundCount = 0;
+      }
 
       if (owedRefundCount > 0) {
         const refundPerProxyKobo = 750000; // ₦7,500 in Kobo
@@ -1568,10 +1586,11 @@ async function reconcileProxyRefunds(targetUserId) {
           });
         }
 
-        // Delete any stuck/provisioning leases for this user since they are refunded
+        // Only delete stale provisioning leases older than 20 minutes
         await ProxyLease.deleteMany({
           user_id: uid,
-          status: 'provisioning'
+          status: 'provisioning',
+          created_at: { $lt: twentyMinsAgo }
         });
 
         console.log(`[Proxy Refund Reconciler] Refunded ${owedRefundCount} x ₦7,500 (₦${(totalRefundKobo / 100).toLocaleString()}) to user ${u.email} (${uid})`);
@@ -1611,53 +1630,57 @@ app.get(['/api/proxy/leases', '/api/proxies', '/api/user/proxies'], requireAuth,
     }).sort({ _id: -1 });
 
     if (hasPaidRentTx) {
-      // Re-link to newly allocated Proxy-Seller order 2006210097 if available
-      const activeProxy = await proxyService.fetchOrderProxy('2006210097');
-      if (activeProxy && activeProxy.ip_address) {
-        let existingLease = await ProxyLease.findOne({
-          user_id: req.session.userId,
-          $or: [
-            { order_id: '2006210097' },
-            { order_id: '1832978025' },
-            { order_id: '5281162' },
-            { status: 'provisioning' }
-          ]
-        }).sort({ _id: -1 });
-
-        if (existingLease) {
-          existingLease.order_id = '2006210097';
-          existingLease.upstream_order_id = '2006210097';
-          existingLease.upstream_proxy_id = activeProxy.upstream_proxy_id || '40706686';
-          existingLease.ip_address = activeProxy.ip_address;
-          existingLease.http_port = activeProxy.http_port;
-          existingLease.socks5_port = activeProxy.socks5_port;
-          existingLease.socks5_user = activeProxy.socks5_user;
-          existingLease.socks5_pass = activeProxy.socks5_pass;
-          existingLease.wireguard_conf = activeProxy.wireguard_conf || '';
-          existingLease.status = 'active';
-          await existingLease.save();
-        } else {
-          await ProxyLease.create({
+      // Re-link to newly allocated Proxy-Seller orders (e.g. 1189894693, 2006210097)
+      const candidateOrders = ['1189894693', '2006210097'];
+      for (const ordId of candidateOrders) {
+        const activeProxy = await proxyService.fetchOrderProxy(ordId);
+        if (activeProxy && activeProxy.ip_address && activeProxy.ip_address !== '208.214.167.61') {
+          let existingLease = await ProxyLease.findOne({
             user_id: req.session.userId,
-            order_id: '2006210097',
-            upstream_provider: 'proxy_seller',
-            upstream_order_id: '2006210097',
-            upstream_proxy_id: activeProxy.upstream_proxy_id || '40706686',
-            ip_address: activeProxy.ip_address,
-            protocol: 'socks5',
-            http_port: activeProxy.http_port,
-            socks5_port: activeProxy.socks5_port,
-            socks5_user: activeProxy.socks5_user,
-            socks5_pass: activeProxy.socks5_pass,
-            wireguard_conf: activeProxy.wireguard_conf || '',
-            country: 'US',
-            carrier: 'Verizon/AT&T (ISP Residential)',
-            isp_carrier: 'Verizon/AT&T (ISP Residential)',
-            fraud_score: 0,
-            replacement_count: 0,
-            expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-            status: 'active'
-          });
+            $or: [
+              { order_id: ordId },
+              { upstream_order_id: ordId },
+              { ip_address: activeProxy.ip_address },
+              { status: 'provisioning' }
+            ]
+          }).sort({ _id: -1 });
+
+          if (existingLease) {
+            existingLease.order_id = ordId;
+            existingLease.upstream_order_id = ordId;
+            existingLease.upstream_proxy_id = activeProxy.upstream_proxy_id || ordId;
+            existingLease.ip_address = activeProxy.ip_address;
+            existingLease.http_port = activeProxy.http_port;
+            existingLease.socks5_port = activeProxy.socks5_port;
+            existingLease.socks5_user = activeProxy.socks5_user;
+            existingLease.socks5_pass = activeProxy.socks5_pass;
+            existingLease.wireguard_conf = activeProxy.wireguard_conf || '';
+            existingLease.status = 'active';
+            await existingLease.save();
+          } else {
+            await ProxyLease.create({
+              user_id: req.session.userId,
+              order_id: ordId,
+              upstream_provider: 'proxy_seller',
+              upstream_order_id: ordId,
+              upstream_proxy_id: activeProxy.upstream_proxy_id || ordId,
+              ip_address: activeProxy.ip_address,
+              protocol: 'socks5',
+              http_port: activeProxy.http_port,
+              socks5_port: activeProxy.socks5_port,
+              socks5_user: activeProxy.socks5_user,
+              socks5_pass: activeProxy.socks5_pass,
+              wireguard_conf: activeProxy.wireguard_conf || '',
+              country: 'US',
+              carrier: 'Comcast / AT&T (ISP Residential)',
+              isp_carrier: 'Comcast / AT&T (ISP Residential)',
+              fraud_score: 0,
+              replacement_count: 0,
+              expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+              status: 'active'
+            });
+          }
+          break;
         }
       }
     } else {
