@@ -392,8 +392,9 @@ async function verifyUserPendingTransactions(userId) {
 // Get logged-in user profile
 app.get('/api/auth/me', requireAuth, async (req, res) => {
   try {
-    // Reconcile pending deposits before returning profile
+    // Reconcile pending deposits and proxy refunds before returning profile
     await verifyUserPendingTransactions(req.session.userId);
+    await reconcileProxyRefunds(req.session.userId);
 
     const user = await User.findById(req.session.userId);
     if (!user) {
@@ -1511,60 +1512,85 @@ async function syncProvisioningLeases(userId) {
   }
 }
 
-// Check for upstream refunds on Proxy-Seller orders
-async function checkUpstreamProxyRefunds(userId) {
-  const apiKey = process.env.PROXY_SELLER_API_KEY;
-  if (!apiKey) return;
-
+// Reconcile and refund any unfulfilled or upstream-refunded proxy orders
+async function reconcileProxyRefunds(targetUserId) {
   try {
-    const res = await axios.get(`https://proxy-seller.com/personal/api/v1/${apiKey}/order/list`, {
-      headers: { 'Accept': 'application/json' },
-      timeout: 8000
-    });
-    const orders = res.data?.data?.items || [];
-    for (const ord of orders) {
-      const isRefunded = ord.status === 'Refunded' || ord.status === 'Cancelled' || ord.status_type === 'REFUNDED' || ord.status_type === 'CANCELLED';
-      if (!isRefunded) continue;
+    const userQuery = targetUserId ? { _id: targetUserId } : {};
+    const users = await User.find(userQuery);
 
-      const refundedOrderIds = [String(ord.id), String(ord.order_id), String(ord.order_number)];
-      const lease = await ProxyLease.findOne({
-        order_id: { $in: refundedOrderIds }
+    for (const u of users) {
+      const uid = u._id;
+
+      // 1. Fetch completed proxy_rent transactions (each ₦7,500)
+      const rentTxs = await Transaction.find({
+        user_id: uid,
+        type: 'proxy_rent',
+        status: 'completed'
+      }).sort({ created_at: 1 });
+
+      if (rentTxs.length === 0) continue;
+
+      // 2. Fetch completed proxy_refund transactions
+      const refundTxs = await Transaction.find({
+        user_id: uid,
+        type: 'proxy_refund',
+        status: 'completed'
       });
 
-      if (lease) {
-        const ownerId = lease.user_id;
-        const refundAmountKobo = 750000; // ₦7,500
-        const ref = `pref_${crypto.randomBytes(8).toString('hex')}`;
+      // 3. Fetch genuinely active working leases with real allocated IP
+      const activeLeases = await ProxyLease.find({
+        user_id: uid,
+        status: 'active',
+        ip_address: { $exists: true, $nin: ['', 'Allocating...', '208.214.167.61'] }
+      });
 
-        const existingRefundTx = await Transaction.findOne({
-          user_id: ownerId,
-          type: 'proxy_refund',
-          reference: { $regex: new RegExp(ord.id) }
+      // Calculate how many paid rentals are unfulfilled / refunded upstream
+      const owedRefundCount = rentTxs.length - (refundTxs.length + activeLeases.length);
+
+      if (owedRefundCount > 0) {
+        const refundPerProxyKobo = 750000; // ₦7,500 in Kobo
+        const totalRefundKobo = owedRefundCount * refundPerProxyKobo;
+
+        // Credit user's wallet balance atomically
+        await User.findByIdAndUpdate(uid, {
+          $inc: { balance: totalRefundKobo }
         });
 
-        if (!existingRefundTx) {
-          await User.findByIdAndUpdate(ownerId, { $inc: { balance: refundAmountKobo } });
+        // Create completed refund transaction records
+        for (let i = 0; i < owedRefundCount; i++) {
+          const ref = `ref_ps_refund_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
           await Transaction.create({
-            user_id: ownerId,
+            user_id: uid,
             type: 'proxy_refund',
-            amount: refundAmountKobo,
-            reference: `ref_ps_${ord.id}_${ref}`,
+            amount: refundPerProxyKobo,
+            reference: ref,
             status: 'completed'
           });
-          await ProxyLease.findByIdAndDelete(lease._id);
-          console.log(`[ProxySeller Refund Watcher] Refunded ₦7,500 to user ${ownerId} for cancelled order ${ord.id}`);
         }
+
+        // Delete any stuck/provisioning leases for this user since they are refunded
+        await ProxyLease.deleteMany({
+          user_id: uid,
+          status: 'provisioning'
+        });
+
+        console.log(`[Proxy Refund Reconciler] Refunded ${owedRefundCount} x ₦7,500 (₦${(totalRefundKobo / 100).toLocaleString()}) to user ${u.email} (${uid})`);
       }
     }
   } catch (err) {
-    // Non-blocking background worker
+    console.error('Error in reconcileProxyRefunds:', err.message);
   }
+}
+
+// Check for upstream refunds on Proxy-Seller orders
+async function checkUpstreamProxyRefunds(userId) {
+  await reconcileProxyRefunds(userId);
 }
 
 // Background sync worker running every 15 seconds
 setInterval(() => {
   syncProvisioningLeases().catch(e => console.error('Background proxy sync error:', e.message));
-  checkUpstreamProxyRefunds().catch(e => console.error('Refund watcher error:', e.message));
+  reconcileProxyRefunds().catch(e => console.error('Refund reconciler error:', e.message));
 }, 15000);
 
 // Fetch active proxy leases (strictly scoped to authenticated user and verified order_id)
@@ -1574,8 +1600,8 @@ app.get(['/api/proxy/leases', '/api/proxies', '/api/user/proxies'], requireAuth,
   res.set('Expires', '0');
 
   try {
-    // Check for any upstream refunded orders
-    await checkUpstreamProxyRefunds(req.session.userId);
+    // Reconcile and credit any pending proxy refunds
+    await reconcileProxyRefunds(req.session.userId);
 
     // Check if the user has a genuine paid proxy transaction
     const hasPaidRentTx = await Transaction.findOne({
@@ -2176,6 +2202,9 @@ app.get('/api/sms/activations', requireAuth, async (req, res) => {
 // Retrieve account transaction log history
 app.get('/api/wallet/transactions', requireAuth, async (req, res) => {
   try {
+    // Reconcile any pending proxy refunds so transaction history is immediately up to date
+    await reconcileProxyRefunds(req.session.userId);
+
     const transactions = await Transaction.find({
       user_id: req.session.userId
     }).sort({ _id: -1 }).limit(50);
