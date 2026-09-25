@@ -49,6 +49,8 @@ app.use(express.urlencoded({ extended: true }));
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   const allowedOrigins = [
+    'https://proxyvaultng.com.ng',
+    'https://www.proxyvaultng.com.ng',
     'https://proxyvaultng.vercel.app',
     'http://localhost:3000',
     'http://127.0.0.1:3000'
@@ -57,10 +59,20 @@ app.use((req, res, next) => {
     allowedOrigins.push(process.env.CLIENT_URL);
   }
   
-  if (allowedOrigins.includes(origin)) {
+  const isAllowed = origin && (
+    allowedOrigins.includes(origin) ||
+    origin.endsWith('.proxyvaultng.com.ng') ||
+    origin.endsWith('.vercel.app') ||
+    origin.includes('localhost') ||
+    origin.includes('127.0.0.1')
+  );
+
+  if (isAllowed) {
     res.setHeader('Access-Control-Allow-Origin', origin);
+  } else if (!origin) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
   } else {
-    res.setHeader('Access-Control-Allow-Origin', allowedOrigins[0] || 'https://proxyvaultng.vercel.app');
+    res.setHeader('Access-Control-Allow-Origin', origin);
   }
   
   res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -156,7 +168,13 @@ app.get('/index.html', (req, res) => {
 });
 
 // Serve static frontend files
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html') || filePath.endsWith('.js')) {
+      res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+    }
+  }
+}));
 
 // Fast Warm-up & Ping Endpoints
 app.get('/api/v1/ping', (req, res) => {

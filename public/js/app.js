@@ -204,6 +204,18 @@ function switchView(targetId) {
 
   // Close mobile drawer if open
   closeDrawer();
+
+  // Refresh SMS catalogs if switching to SMS view
+  if (targetId === '#sms-view' && cachedSmsCatalog) {
+    const serviceSearch = document.getElementById('sms-service-search');
+    const countrySearch = document.getElementById('sms-country-search');
+    if (!currentStepService) {
+      renderStep1Services(serviceSearch ? serviceSearch.value : '');
+    }
+    if (!currentStepCountry) {
+      renderStep2Countries(countrySearch ? countrySearch.value : '');
+    }
+  }
 }
 
 function setupNavAndModals() {
@@ -636,33 +648,29 @@ async function handleDepositSubmit() {
 // CATALOGS & SELECTORS INITIALIZATION
 // ----------------------------------------------------
 async function initCatalogs() {
-  // Default fallback catalog
-  cachedSmsCatalog = {
-    services: [
-      { id: 'facebook', name: 'Facebook', price_ngn: 1500 },
-      { id: 'whatsapp', name: 'WhatsApp', price_ngn: 1500 },
-      { id: 'telegram', name: 'Telegram', price_ngn: 1200 },
-      { id: 'google', name: 'Google / YouTube', price_ngn: 1200 },
-      { id: 'chatgpt', name: 'OpenAI / ChatGPT', price_ngn: 1000 },
-      { id: 'instagram', name: 'Instagram / Threads', price_ngn: 1200 },
-      { id: 'tiktok', name: 'TikTok', price_ngn: 1000 },
-      { id: 'amazon', name: 'Amazon', price_ngn: 1200 },
-      { id: 'microsoft', name: 'Microsoft', price_ngn: 1200 }
-    ],
-    countries: [
-      { id: 'usa', name: 'United States 🇺🇸' },
-      { id: 'england', name: 'United Kingdom 🇬🇧' },
-      { id: 'canada', name: 'Canada 🇨🇦' },
-      { id: 'germany', name: 'Germany 🇩🇪' },
-      { id: 'indonesia', name: 'Indonesia 🇮🇩' },
-      { id: 'philippines', name: 'Philippines 🇵🇭' },
-      { id: 'cambodia', name: 'Cambodia 🇰🇭' },
-      { id: 'southafrica', name: 'South Africa 🇿🇦' },
-      { id: 'india', name: 'India 🇮🇳' },
-      { id: 'nigeria', name: 'Nigeria 🇳🇬' }
-    ]
-  };
+  // Bind Search Filters immediately
+  const serviceSearch = document.getElementById('sms-service-search');
+  if (serviceSearch) {
+    serviceSearch.addEventListener('input', (e) => renderStep1Services(e.target.value));
+  }
 
+  const countrySearch = document.getElementById('sms-country-search');
+  if (countrySearch) {
+    countrySearch.addEventListener('input', (e) => renderStep2Countries(e.target.value));
+  }
+
+  // Bind Clear Chip Buttons
+  const clearServiceBtn = document.getElementById('chip-clear-service-btn');
+  if (clearServiceBtn) {
+    clearServiceBtn.addEventListener('click', resetStep1);
+  }
+
+  const clearCountryBtn = document.getElementById('chip-clear-country-btn');
+  if (clearCountryBtn) {
+    clearCountryBtn.addEventListener('click', resetStep2);
+  }
+
+  // Default initial proxy countries
   proxyCatalogCountries = [
     {
       country_name: 'United States',
@@ -700,55 +708,65 @@ async function initCatalogs() {
       ]
     }
   ];
-
-  // Render initial lists
-  renderStep1Services('');
-  renderStep2Countries('');
   initModalProxyDropdowns();
 
-  // Bind Search Filters
-  const serviceSearch = document.getElementById('sms-service-search');
-  if (serviceSearch) {
-    serviceSearch.addEventListener('input', (e) => renderStep1Services(e.target.value));
-  }
+  // Load live catalogs (SMS & Proxies) asynchronously
+  try {
+    const [smsRes, proxyRes] = await Promise.allSettled([
+      fetch('/api/v1/sms/catalog'),
+      fetch('/api/v1/proxies/static-list')
+    ]);
 
-  const countrySearch = document.getElementById('sms-country-search');
-  if (countrySearch) {
-    countrySearch.addEventListener('input', (e) => renderStep2Countries(e.target.value));
-  }
-
-  // Bind Clear Chip Buttons
-  const clearServiceBtn = document.getElementById('chip-clear-service-btn');
-  if (clearServiceBtn) {
-    clearServiceBtn.addEventListener('click', resetStep1);
-  }
-
-  const clearCountryBtn = document.getElementById('chip-clear-country-btn');
-  if (clearCountryBtn) {
-    clearCountryBtn.addEventListener('click', resetStep2);
-  }
-
-  // Fetch live backend catalogs asynchronously
-  fetch('/api/v1/sms/catalog')
-    .then(res => res.ok ? res.json() : Promise.reject())
-    .then(data => {
-      if (data && data.services && data.countries) {
+    if (smsRes.status === 'fulfilled' && smsRes.value.ok) {
+      const data = await smsRes.value.json();
+      if (data && data.services && data.countries && data.services.length > 0) {
         cachedSmsCatalog = data;
-        renderStep1Services(serviceSearch ? serviceSearch.value : '');
-        renderStep2Countries(countrySearch ? countrySearch.value : '');
+        console.log(`[SMS Catalog] Loaded ${data.services.length} services and ${data.countries.length} countries`);
       }
-    })
-    .catch(() => {});
+    }
 
-  fetch('/api/v1/proxies/static-list')
-    .then(res => res.ok ? res.json() : Promise.reject())
-    .then(data => {
+    if (proxyRes.status === 'fulfilled' && proxyRes.value.ok) {
+      const data = await proxyRes.value.json();
       if (data && data.countries && data.countries.length > 0) {
         proxyCatalogCountries = data.countries;
         initModalProxyDropdowns();
       }
-    })
-    .catch(() => {});
+    }
+  } catch (err) {
+    console.error('[Catalogs] Error loading live catalogs:', err);
+  }
+
+  // Fallback if SMS catalog failed over network
+  if (!cachedSmsCatalog || !cachedSmsCatalog.services || cachedSmsCatalog.services.length === 0) {
+    cachedSmsCatalog = {
+      services: [
+        { id: 'facebook', name: 'Facebook', price_ngn: 1500 },
+        { id: 'whatsapp', name: 'WhatsApp', price_ngn: 1500 },
+        { id: 'telegram', name: 'Telegram', price_ngn: 1200 },
+        { id: 'google', name: 'Google / YouTube', price_ngn: 1200 },
+        { id: 'chatgpt', name: 'OpenAI / ChatGPT', price_ngn: 1000 },
+        { id: 'instagram', name: 'Instagram / Threads', price_ngn: 1200 },
+        { id: 'tiktok', name: 'TikTok', price_ngn: 1000 },
+        { id: 'amazon', name: 'Amazon', price_ngn: 1200 },
+        { id: 'microsoft', name: 'Microsoft', price_ngn: 1200 }
+      ],
+      countries: [
+        { id: 'usa', name: 'United States 🇺🇸' },
+        { id: 'england', name: 'United Kingdom 🇬🇧' },
+        { id: 'canada', name: 'Canada 🇨🇦' },
+        { id: 'germany', name: 'Germany 🇩🇪' },
+        { id: 'indonesia', name: 'Indonesia 🇮🇩' },
+        { id: 'philippines', name: 'Philippines 🇵🇭' },
+        { id: 'cambodia', name: 'Cambodia 🇰🇭' },
+        { id: 'southafrica', name: 'South Africa 🇿🇦' },
+        { id: 'india', name: 'India 🇮🇳' },
+        { id: 'nigeria', name: 'Nigeria 🇳🇬' }
+      ]
+    };
+  }
+
+  renderStep1Services(serviceSearch ? serviceSearch.value : '');
+  renderStep2Countries(countrySearch ? countrySearch.value : '');
 }
 
 // ----------------------------------------------------
@@ -1463,7 +1481,9 @@ function initModalProxyDropdowns() {
       countrySelect.appendChild(opt);
     });
 
-    updateModalIspOptions();
+    if (typeof updateModalIspOptions === 'function') {
+      updateModalIspOptions();
+    }
   };
 
   renderDropdown('');
