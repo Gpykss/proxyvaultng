@@ -5,9 +5,9 @@
   <meta charset="UTF-8">
   <link rel="icon" type="image/x-icon" href="/favicon.ico" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ProxyVault NG - Dedicated Static Residential IPs for Developers & Teams</title>
+  <title>ProxyVault - Dedicated Static Residential IPs & Virtual SMS OTP</title>
   <meta name="description"
-    content="Dedicated static residential IPs for Nigerian developers, QA and marketing teams. SOCKS5 & HTTP/HTTPS, 30-day leases, paid in Naira.">
+    content="Nigerian professionals fund with Naira to rent dedicated static residential IPs & global SMS numbers.">
   <link rel="stylesheet" href="css/style.css">
 </head>
 
@@ -31,9 +31,9 @@
 
   <!-- Hero Section -->
   <section class="hero-section">
-    <div class="hero-badge">⚡ DEDICATED STATIC RESIDENTIAL IPS • PAID IN NAIRA</div>
-    <h1 class="hero-title">Dedicated Static IPs for Developers &amp; Teams</h1>
-    <p class="hero-subtitle">Test sites, check ads and track search results across US, UK and 20+ countries. One dedicated IP, 30 days, paid in Naira.</p>
+    <div class="hero-badge">⚡ DEDICATED STATIC RESIDENTIAL IPS & SMS OTP</div>
+    <h1 class="hero-title">Dedicated Static Residential IPs & Virtual SMS OTP for Professionals</h1>
+    <p class="hero-subtitle">Nigeria's premier portal for dedicated clean residential proxy allocations and instant global virtual SMS verification codes.</p>
     <div class="hero-actions">
       <button class="btn btn-primary hero-btn" id="hero-get-started-btn">Get Started Now</button>
       <a href="#features" class="btn btn-outline hero-btn">Explore Features</a>
@@ -41,6 +41,19 @@
 
     <!-- Interactive Direct Buying Dashboard Widget -->
     <div class="direct-buy-widget" id="direct-buy-widget">
+      <!-- Tab Switcher: Static ISP Proxy vs Instant SMS Verification -->
+      <div class="direct-buy-tabs">
+        <button type="button" class="buy-tab-btn active" id="tab-btn-proxy">
+          <span class="tab-icon">🌐</span>
+          <span class="tab-label">Static ISP Proxy</span>
+          <span class="tab-pill">₦7,500</span>
+        </button>
+        <button type="button" class="buy-tab-btn" id="tab-btn-sms">
+          <span class="tab-icon">📱</span>
+          <span class="tab-label">Instant SMS Verification</span>
+          <span class="tab-pill tab-pill-green">From ₦600</span>
+        </button>
+      </div>
 
       <div class="direct-buy-header">
         <div class="direct-buy-status" id="direct-buy-status-text">
@@ -48,9 +61,9 @@
           <span>Dedicated Subnets In Stock • Instant Delivery &lt; 5s</span>
         </div>
         <div class="direct-buy-badges" id="direct-buy-badges-row">
-          <span class="badge-mini badge-green">🔒 Dedicated (not shared)</span>
+          <span class="badge-mini badge-green">🛡️ 0% Fraud Score</span>
           <span class="badge-mini badge-blue">📶 Residential ASN</span>
-          <span class="badge-mini badge-purple">⚡ SOCKS5 + HTTP/HTTPS</span>
+          <span class="badge-mini badge-purple">⚡ Upwork / PayPal Verified</span>
         </div>
       </div>
 
@@ -97,8 +110,9 @@
           <div class="direct-buy-pricing">
             <span class="price-duration">30-Day Dedicated Lease:</span>
             <div class="price-val-group">
+              <span class="price-strike"><del>₦12,000</del></span>
               <span class="price-current">₦7,500</span>
-              <span class="price-save-badge">30 days</span>
+              <span class="price-save-badge">38% OFF</span>
             </div>
           </div>
           <button class="btn btn-primary direct-buy-btn" id="landing-buy-now-btn">
@@ -108,6 +122,83 @@
         <div class="direct-buy-trust-note">
           <span class="trust-icon">⚡</span>
           <span>Pay via <strong>Instant Bank Transfer</strong>, <strong>OPay</strong>, or <strong>Card</strong> • Automated Provisioning</span>
+        </div>
+      </div>
+
+      <!-- Tab 2: Instant SMS Verification Content -->
+      <div class="direct-buy-body" id="sms-tab-content" style="display: none;">
+        <div class="direct-buy-controls direct-buy-controls-2col">
+          <div class="buy-field-group">
+            <label class="buy-field-label" for="landing-sms-service">1. Target Platform</label>
+            <select class="buy-select" id="landing-sms-service">
+              <option value="whatsapp" data-price="1200" data-code="849-201" selected>💬 WhatsApp (₦1,200)</option>
+              <option value="telegram" data-price="800" data-code="572-194">✈️ Telegram (₦800)</option>
+              <option value="openai" data-price="600" data-code="392015">🤖 OpenAI / ChatGPT (₦600)</option>
+              <option value="google" data-price="750" data-code="G-847291">🔍 Google / Gmail (₦750)</option>
+              <option value="tiktok" data-price="650" data-code="401-829">🎵 TikTok (₦650)</option>
+              <option value="paypal" data-price="1500" data-code="827391">💳 PayPal (₦1,500)</option>
+              <option value="twitter" data-price="700" data-code="519-024">🐦 Twitter / X (₦700)</option>
+            </select>
+          </div>
+          <div class="buy-field-group">
+            <label class="buy-field-label" for="landing-sms-country">2. Number Country</label>
+            <select class="buy-select" id="landing-sms-country">
+              <option value="usa" data-prefix="+1 (202) 843-" selected>🇺🇸 United States (+1)</option>
+              <option value="england" data-prefix="+44 7911 82">🇬🇧 United Kingdom (+44)</option>
+              <option value="canada" data-prefix="+1 (416) 902-">🇨🇦 Canada (+1)</option>
+              <option value="germany" data-prefix="+49 152 092">🇩🇪 Germany (+49)</option>
+              <option value="nigeria" data-prefix="+234 803 912">🇳🇬 Nigeria (+234)</option>
+              <option value="france" data-prefix="+33 6 44 63 ">🇫🇷 France (+33)</option>
+              <option value="netherlands" data-prefix="+31 6 1234 ">🇳🇱 Netherlands (+31)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Live Simulated SMS Output Preview Box -->
+        <div class="direct-buy-preview">
+          <div class="preview-header">
+            <span class="preview-title">⚡ Allocated Temporary Number &amp; OTP Preview:</span>
+            <span class="preview-tag" style="color: #4ade80; background: rgba(34, 197, 94, 0.15);">🟢 Active Window: 15m</span>
+          </div>
+          <div class="preview-string" id="landing-preview-sms-num" style="display: flex; align-items: center; justify-content: space-between;">
+            <span>+1 (202) 843-9104</span>
+            <span style="font-size: 0.72rem; color: #94a3b8; font-weight: 500;">Private Virtual Line</span>
+          </div>
+
+          <!-- Simulated SMS Delivery Bubble -->
+          <div class="sms-preview-msg">
+            <div class="sms-preview-sender">
+              <span class="sms-sender-badge" id="landing-sms-sender-tag">WhatsApp</span>
+              <span class="sms-sender-time">Received in &lt; 12s</span>
+            </div>
+            <div class="sms-preview-body" id="landing-sms-msg-body">
+              Your WhatsApp verification code is: <strong class="sms-code-highlight" id="landing-sms-code-display">849-201</strong>. Do not share with anyone.
+            </div>
+          </div>
+
+          <div class="sms-guarantee-note">
+            <span>🛡️</span>
+            <span><strong>Auto-Refund Guarantee:</strong> Free instant refund to your wallet if SMS code doesn't arrive within 5 minutes.</span>
+          </div>
+        </div>
+
+        <!-- Price & Instant CTA -->
+        <div class="direct-buy-footer">
+          <div class="direct-buy-pricing">
+            <span class="price-duration">Instant OTP Verification:</span>
+            <div class="price-val-group">
+              <span class="price-strike"><del id="landing-sms-strike-val">₦2,000</del></span>
+              <span class="price-current" id="landing-sms-price-val">₦1,200</span>
+              <span class="price-save-badge">Instant</span>
+            </div>
+          </div>
+          <button class="btn btn-primary direct-buy-btn" id="landing-buy-sms-btn" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-color: #059669; box-shadow: 0 4px 18px rgba(16, 185, 129, 0.4);">
+            ⚡ Receive SMS Verification (₦1,200)
+          </button>
+        </div>
+        <div class="direct-buy-trust-note">
+          <span class="trust-icon">⚡</span>
+          <span>Pay via <strong>Instant Bank Transfer</strong>, <strong>OPay</strong>, or <strong>Card</strong> • Free Instant Refund if no SMS</span>
         </div>
       </div>
     </div>
@@ -125,8 +216,8 @@
         <span class="metric-label">Residential Speeds</span>
       </div>
       <div class="metric-item">
-        <span class="metric-value">20+</span>
-        <span class="metric-label">Countries</span>
+        <span class="metric-value">10,000+</span>
+        <span class="metric-label">Active Leases</span>
       </div>
       <div class="metric-item">
         <span class="metric-value">Naira ₦</span>
@@ -138,24 +229,24 @@
   <!-- Features Grid -->
   <section class="features-section" id="features">
     <div class="section-header">
-      <h2 class="section-title">Built for Real Work</h2>
-      <p class="section-subtitle">For developers, QA testers and marketers who need a stable, dedicated connection in another country.</p>
+      <h2 class="section-title">Premium Proxy & Verification Services</h2>
+      <p class="section-subtitle">Engineered specifically for developers and remote professionals requiring absolute stability and reliability.</p>
     </div>
     <div class="features-grid">
       <div class="feature-card">
         <div class="feature-icon">🌐</div>
         <h3 class="feature-card-title">Static Residential IPs</h3>
-        <p class="feature-card-text">A dedicated residential IP that doesn't rotate and isn't shared with other users. Same IP for the full 30-day lease.</p>
+        <p class="feature-card-text">Rent dedicated residential IPs (Comcast, Verizon, BT, Rogers) that do not rotate. Keep your location fixed for 30 days securely.</p>
       </div>
       <div class="feature-card">
-        <div class="feature-icon">🧪</div>
-        <h3 class="feature-card-title">Testing, SEO &amp; Ad Checks</h3>
-        <p class="feature-card-text">See your site, app, search rankings and ad placements exactly as users in the US, UK or Europe see them.</p>
+        <div class="feature-icon">📱</div>
+        <h3 class="feature-card-title">Virtual SMS OTP</h3>
+        <p class="feature-card-text">Instantly acquire global virtual phone numbers to receive verification codes for Telegram, WhatsApp, ChatGPT, and Google.</p>
       </div>
       <div class="feature-card">
         <div class="feature-icon">💳</div>
         <h3 class="feature-card-title">Local Currency Wallet</h3>
-        <p class="feature-card-text">Fund your wallet in Naira by card, bank transfer or USSD via Korapay. No dollar card needed.</p>
+        <p class="feature-card-text">Fund your wallet in Naira using cards, bank transfer, or USSD via Korapay. Automatic instant allocations without manual delays.</p>
       </div>
     </div>
   </section>
@@ -164,7 +255,7 @@
   <section class="workflow-section" id="workflow">
     <div class="section-header">
       <h2 class="section-title">Get Started in 3 Simple Steps</h2>
-      <p class="section-subtitle">Sign up, fund in Naira and connect in a few minutes.</p>
+      <p class="section-subtitle">No complicated sign-up or verification processes. Start allocating resources in minutes.</p>
     </div>
     <div class="workflow-grid">
       <div class="workflow-step">
@@ -180,7 +271,7 @@
       <div class="workflow-step">
         <div class="step-number">3</div>
         <h3 class="step-title">Deploy Resources</h3>
-        <p class="step-description">Pick a country and your dedicated IP is ready in seconds.</p>
+        <p class="step-description">Instantly select target countries and activate IPs or SMS numbers.</p>
       </div>
     </div>
   </section>
@@ -188,8 +279,8 @@
   <!-- CTA Banner Section -->
   <section class="cta-section">
     <div class="cta-container">
-      <h2 class="section-title" style="color: #fff !important; margin-bottom: 1rem;">Ready to Get Your Dedicated IP?</h2>
-      <p class="section-subtitle" style="color: var(--text-secondary) !important; margin-bottom: 2rem;">₦7,500 for 30 days. Pay with bank transfer, OPay or card.</p>
+      <h2 class="section-title" style="color: #fff !important; margin-bottom: 1rem;">Ready to Secure Your Workspace?</h2>
+      <p class="section-subtitle" style="color: var(--text-secondary) !important; margin-bottom: 2rem;">Get started now and allocate your first residential IP or virtual SMS activation in seconds.</p>
       <button class="btn btn-primary cta-btn" id="cta-get-started-btn">Deploy Resources Now</button>
     </div>
   </section>
@@ -199,13 +290,14 @@
     <div class="footer-grid">
       <div>
         <div class="logo">ProxyVault 🇳🇬</div>
-        <p class="footer-brand-tagline">Dedicated static residential IPs for Nigerian developers and teams.</p>
+        <p class="footer-brand-tagline">Secure static residential SOCKS5 proxies and virtual global phone numbers for Nigerian professionals.</p>
       </div>
       <div>
         <h4 class="footer-title">Products</h4>
         <ul class="footer-links">
           <li><a href="#features" class="footer-link">Static IPs</a></li>
-                  </ul>
+          <li><a href="#features" class="footer-link">SMS OTPs</a></li>
+        </ul>
       </div>
       <div>
         <h4 class="footer-title">Platform</h4>
@@ -238,7 +330,7 @@
         <p style="margin-bottom: 1rem;">Welcome to ProxyVault. By using our services, you agree to comply with and be bound by the following terms and conditions.</p>
         
         <h3 style="font-weight: 600; color: #fff; margin-top: 1.25rem; margin-bottom: 0.5rem;">1. Service Usage</h3>
-        <p style="margin-bottom: 1rem;">Our static residential proxies are provided for lawful professional use only. Any abuse or illegal activities will result in immediate termination of the account without refund.</p>
+        <p style="margin-bottom: 1rem;">Our static residential SOCKS5 proxies and virtual global phone numbers are provided for legitimate professionals. Any abuse or illegal activities will result in immediate termination of the account without refund.</p>
         
         <h3 style="font-weight: 600; color: #fff; margin-top: 1.25rem; margin-bottom: 0.5rem;">2. Wallet & Deposit Policy</h3>
         <div style="background-color: rgba(245, 158, 11, 0.1); border-left: 4px solid #f59e0b; padding: 0.75rem; margin-top: 0.5rem; margin-bottom: 1rem; border-radius: 4px;">
@@ -263,7 +355,7 @@
           <span>ProxyVault 🇳🇬</span>
         </div>
         <h1 id="auth-title">Welcome Back</h1>
-        <p id="auth-subtitle">Log in to manage your static IPs</p>
+        <p id="auth-subtitle">Log in to manage your static IPs and OTP numbers</p>
       </div>
 
       <form id="auth-form">
@@ -346,7 +438,7 @@
           authSubtitle.textContent = 'Log in to deploy your selected ISP proxy';
           submitBtn.textContent = `Log In & Deploy (₦${currentPriceFmt})`;
         } else {
-          authSubtitle.textContent = 'Log in to manage your static IPs';
+          authSubtitle.textContent = 'Log in to manage your static IPs and OTP numbers';
           submitBtn.textContent = 'Log In';
         }
         submitBtn.className = 'btn btn-primary';
@@ -397,9 +489,9 @@
         }
         if (directBuyBadgesRow) {
           directBuyBadgesRow.innerHTML = `
-            <span class="badge-mini badge-green">🔒 Dedicated (not shared)</span>
+            <span class="badge-mini badge-green">🛡️ 0% Fraud Score</span>
             <span class="badge-mini badge-blue">📶 Residential ASN</span>
-            <span class="badge-mini badge-purple">⚡ SOCKS5 + HTTP/HTTPS</span>
+            <span class="badge-mini badge-purple">⚡ Upwork / PayPal Verified</span>
           `;
         }
       });
@@ -444,7 +536,7 @@
         const strikeEl = document.querySelector('.price-strike del');
         const buyBtn = document.getElementById('landing-buy-now-btn');
         if (currentEl) currentEl.textContent = `₦${data.price_formatted}`;
-        
+        if (strikeEl) strikeEl.textContent = `₦${data.strike_formatted}`;
         if (buyBtn) buyBtn.innerHTML = `🚀 Deploy Instant Proxy (₦${data.price_formatted})`;
       } catch (e) {
         console.log('Using default pricing display');
@@ -691,7 +783,7 @@
           } else {
             isLogin = true;
             authTitle.textContent = 'Welcome Back';
-            authSubtitle.textContent = 'Log in to manage your static IPs';
+            authSubtitle.textContent = 'Log in to manage your static IPs and OTP numbers';
             submitBtn.textContent = 'Log In';
             submitBtn.className = 'btn btn-primary';
             toggleText.textContent = "Don't have an account?";

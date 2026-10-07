@@ -1686,7 +1686,7 @@ async function loadActiveProxies() {
           <div style="font-size: 2.75rem; margin-bottom: 0.85rem; line-height: 1;">🌐</div>
           <h3 style="font-size: 1.15rem; font-weight: 700; color: #f1f5f9; margin-bottom: 0.45rem;">No active proxies found.</h3>
           <p style="font-size: 0.84rem; color: var(--text-secondary, #94a3b8); max-width: 440px; margin: 0 auto 1.5rem auto; line-height: 1.5;">
-            You have not deployed any static residential ISP proxies yet. Allocate your private, dedicated US/UK residential IP.
+            You have not deployed any static residential ISP proxies yet. Allocate your private, dedicated US/UK residential IP with 0% fraud score.
           </p>
           <button class="btn-primary" id="empty-state-deploy-btn" style="padding: 0.75rem 1.6rem; font-size: 0.9rem; font-weight: 700; border-radius: 9999px; box-shadow: 0 4px 20px rgba(59, 130, 246, 0.35); cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem;">
             <span>⚡ Deploy Your First ISP Proxy (₦${priceText})</span>
@@ -1782,7 +1782,7 @@ function createProxySellerCard(lease) {
   // Expiry calculation (30d XX:XX:XX)
   const expiresAt = new Date(lease.expires_at).getTime();
 
-  const carrier = lease.isp_carrier || lease.carrier || 'Residential ISP';
+  const carrier = lease.isp_carrier || lease.carrier || 'Verizon Residential (ISP)';
   const fraudScore = lease.fraud_score !== undefined ? lease.fraud_score : 0;
   const socks5Port = lease.socks5_port || 1080;
   const httpPort = lease.http_port || socks5Port;
@@ -1809,6 +1809,10 @@ function createProxySellerCard(lease) {
       </div>
 
       <div class="cy-proxy-meta-badges">
+        <div class="prd-fraud-badge">
+          <span>🛡️</span>
+          <span>${fraudScore}% Fraud Score</span>
+        </div>
         <div class="prd-carrier-badge">
           <span>📶</span>
           <span>${carrier}</span>
